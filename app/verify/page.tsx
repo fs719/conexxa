@@ -1,8 +1,23 @@
 'use client'
+import { useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export default function Verify() {
   const router = useRouter()
+
+  useEffect(() => {
+    const handleAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/dashboard')
+      } else {
+        router.push('/')
+      }
+    }
+    handleAuth()
+  }, [])
+
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-6">
