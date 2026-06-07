@@ -18,6 +18,7 @@ export default function SignUp() {
     bio: '',
     interests: [] as string[],
     photo: null as any,
+    agreed: false,
   })
 
   const update = (field: string, value: string) =>
@@ -219,14 +220,18 @@ export default function SignUp() {
             <h1 className="text-3xl font-bold">One Last Step</h1>
             <p className="text-gray-400">Please agree to our Terms of Use and Privacy Policy.</p>
             <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" className="w-5 h-5 accent-rose-500" />
+            <input type="checkbox" className="w-5 h-5 accent-rose-500"
+  onChange={e => update('agreed', e.target.checked as any)}
+/>
               <span>I agree to the Terms of Use and Privacy Policy.</span>
             </label>
             {error && <p className="text-red-500">{error}</p>}
-            <button onClick={saveProfile}
-              className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
-              {loading ? 'Saving...' : 'Create Account'}
-            </button>
+            <button onClick={() => {
+  if (!(form as any).agreed) { setError('Please agree to the Terms of Use.'); return }
+  saveProfile()
+}} className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+  {loading ? 'Saving...' : 'Create Account'}
+</button>
           </div>
         )}
 

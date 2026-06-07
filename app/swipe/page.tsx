@@ -41,20 +41,27 @@ export default function Swipe() {
 
       if (myProfile) setUserIntent(myProfile.intent)
 
-      const { data: swipedData } = await supabase
+        const { data: swipedData } = await supabase
         .from('swipes')
         .select('swiped_id')
         .eq('swiper_id', user.id)
 
+      const { data: blockedData } = await supabase
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', user.id)
+
       const swipedIds = swipedData?.map((s: any) => s.swiped_id) || []
+      const blockedIds = blockedData?.map((b: any) => b.blocked_id) || []
+      const excludedIds = [...new Set([...swipedIds, ...blockedIds])]
 
       let query = supabase
         .from('profiles')
         .select('*')
         .neq('id', user.id)
 
-      if (swipedIds.length > 0) {
-        query = query.not('id', 'in', `(${swipedIds.join(',')})`)
+      if (excludedIds.length > 0) {
+        query = query.not('id', 'in', `(${excludedIds.join(',')})`)
       }
 
       const { data: profilesData } = await query
