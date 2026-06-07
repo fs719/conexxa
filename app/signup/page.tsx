@@ -17,6 +17,7 @@ export default function SignUp() {
     intent: '',
     bio: '',
     interests: [] as string[],
+    photo: null as any,
   })
 
   const update = (field: string, value: string) =>
@@ -53,6 +54,19 @@ export default function SignUp() {
     const birth = new Date(form.birthdate)
     const age = new Date().getFullYear() - birth.getFullYear()
 
+    let photo_url = null
+    if (form.photo) {
+      const ext = form.photo.name.split('.').pop()
+      const path = `${user.id}/avatar.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, form.photo, { upsert: true })
+      if (!uploadError) {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+        photo_url = data.publicUrl
+      }
+    }
+
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
       name: form.name,
@@ -61,6 +75,7 @@ export default function SignUp() {
       bio: form.bio,
       edu_email: form.email,
       age: age,
+      photo_url,
     })
 
     if (error) {
@@ -175,6 +190,20 @@ export default function SignUp() {
               onChange={e => update('bio', e.target.value)} maxLength={200}
               className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white h-32 resize-none"
             />
+            <div className="space-y-2">
+              <p className="text-gray-400 text-sm">Profile photo (optional)</p>
+              <input type="file" accept="image/*"
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) update('photo', file as any)
+                }}
+                className="w-full text-gray-400 text-sm"
+              />
+              {(form as any).photo && (
+                <img src={URL.createObjectURL((form as any).photo)} 
+                  className="w-24 h-24 rounded-full object-cover" />
+              )}
+            </div>
             <button onClick={() => setStep(6)}
               className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
               Continue
