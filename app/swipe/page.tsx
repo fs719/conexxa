@@ -155,7 +155,13 @@ export default function Swipe() {
           )}
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex justify-end mb-1">
+  <button onClick={() => router.push(`/report?userId=${profile.id}`)}
+    className="text-gray-600 hover:text-gray-400 text-sm transition">
+    Report
+  </button>
+</div>
+<div className="flex gap-4">
           <button onClick={() => handleSwipe('skip')}
             className="flex-1 bg-gray-900 hover:bg-gray-800 py-4 rounded-2xl text-2xl transition">
             ✕
