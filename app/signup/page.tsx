@@ -41,6 +41,36 @@ export default function SignUp() {
     setStep(3)
   }
 
+  const saveProfile = async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setError('Session expired. Please log in again.')
+      setLoading(false)
+      router.push('/login')
+      return
+    }
+    const birth = new Date(form.birthdate)
+    const age = new Date().getFullYear() - birth.getFullYear()
+
+    const { error } = await supabase.from('profiles').upsert({
+      id: user.id,
+      name: form.name,
+      gender: form.gender,
+      intent: form.intent,
+      bio: form.bio,
+      edu_email: form.email,
+      age: age,
+    })
+
+    if (error) {
+      setError('Failed to save profile. Please try again.')
+      setLoading(false)
+      return
+    }
+    router.push('/dashboard')
+  }
+
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -163,9 +193,10 @@ export default function SignUp() {
               <input type="checkbox" className="w-5 h-5 accent-rose-500" />
               <span>I agree to the Terms of Use and Privacy Policy.</span>
             </label>
-            <button onClick={() => router.push('/verify')}
+            {error && <p className="text-red-500">{error}</p>}
+            <button onClick={saveProfile}
               className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
-              Create Account
+              {loading ? 'Saving...' : 'Create Account'}
             </button>
           </div>
         )}
