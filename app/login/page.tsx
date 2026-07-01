@@ -41,6 +41,9 @@ export default function Login() {
           Don't have an account?{' '}
           <Link href="/signup" className="text-rose-500 hover:underline">Sign Up</Link>
         </p>
+        <p className="text-center text-gray-400">
+          <Link href="/forgot-password" className="text-rose-500 hover:underline">Forgot password?</Link>
+        </p>
       </div>
     </main>
   )
