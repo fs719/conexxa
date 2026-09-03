@@ -30,7 +30,7 @@ export default function SignUp() {
     return age >= 18
   }
 
-  const validateEdu = () => form.email.endsWith('.edu')
+  const validateEdu = () => true
 
   const handleSignUp = async () => {
     setLoading(true)
