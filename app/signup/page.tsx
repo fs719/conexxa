@@ -8,6 +8,8 @@ export default function SignUp() {
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
+  const [code, setCode] = useState('')
   const [form, setForm] = useState({
     birthdate: '',
     email: '',
@@ -30,17 +32,29 @@ export default function SignUp() {
     return age >= 18
   }
 
-  const validateEdu = () => true
+  const validateEdu = () => form.email.trim().toLowerCase().endsWith('.edu')
 
-  const handleSignUp = async () => {
+  const post = async (url: string, body: object) => {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    return { ok: res.ok, data: await res.json().catch(() => ({})) }
+  }
+
+  const handleSendCode = async () => {
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-    })
-    if (error) { setError(error.message); setLoading(false); return }
+    const { ok, data } = await post('/api/auth/send-code', { email: form.email, purpose: 'signup' })
     setLoading(false)
-    setStep(3)
+    if (!ok) { setError(data.error || 'Could not send code.'); return }
+    setError(''); setCodeSent(true)
+  }
+
+  const handleVerify = async () => {
+    setLoading(true)
+    const { ok, data } = await post('/api/auth/verify-code', { email: form.email, purpose: 'signup', code, password: form.password })
+    if (!ok) { setError(data.error || 'Invalid code.'); setLoading(false); return }
+    const { error } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password })
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    setError(''); setStep(3)
   }
 
   const saveProfile = async () => {
@@ -74,7 +88,7 @@ export default function SignUp() {
       gender: form.gender,
       intent: form.intent,
       bio: form.bio,
-      edu_email: form.email,
+      edu_email: form.email.trim().toLowerCase(),
       age: age,
       photo_url,
     })
@@ -110,10 +124,10 @@ export default function SignUp() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && !codeSent && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Verify Your Contact</h1>
-            <p className="text-gray-400">Only .edu emails are accepted.</p>
+            <p className="text-gray-400">Only .edu emails are accepted. We'll email you a 6-digit code.</p>
             <input type="email" placeholder="your@university.edu" value={form.email}
               onChange={e => update('email', e.target.value)}
               className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
@@ -123,13 +137,30 @@ export default function SignUp() {
               className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
             />
             {error && <p className="text-red-500">{error}</p>}
-            <button onClick={() => {
+            <button disabled={loading} onClick={() => {
               if (!validateEdu()) { setError('Please use a .edu email address.'); return }
               if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
-              setError(''); handleSignUp()
+              setError(''); handleSendCode()
             }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
-              {loading ? 'Sending...' : 'Send Verification'}
+              {loading ? 'Sending...' : 'Send Code'}
             </button>
+          </div>
+        )}
+
+        {step === 2 && codeSent && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-bold">Enter Your Code</h1>
+            <p className="text-gray-400">We sent a 6-digit code to {form.email}. Check spam if you don't see it.</p>
+            <input type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-center text-2xl tracking-widest"
+            />
+            {error && <p className="text-red-500">{error}</p>}
+            <button disabled={loading || code.length !== 6} onClick={handleVerify}
+              className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+              {loading ? 'Verifying...' : 'Verify'}
+            </button>
+            <button onClick={handleSendCode} className="w-full text-gray-500 hover:text-white transition">Resend code</button>
           </div>
         )}
 
