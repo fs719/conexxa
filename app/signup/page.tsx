@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ageFrom } from '@/lib/age'
 
 export default function SignUp() {
   const router = useRouter()
@@ -16,6 +18,7 @@ export default function SignUp() {
     password: '',
     name: '',
     gender: '',
+    interested_in: '',
     intent: '',
     bio: '',
     interests: [] as string[],
@@ -26,11 +29,7 @@ export default function SignUp() {
   const update = (field: string, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }))
 
-  const validateAge = () => {
-    const birth = new Date(form.birthdate)
-    const age = new Date().getFullYear() - birth.getFullYear()
-    return age >= 18
-  }
+  const validateAge = () => ageFrom(form.birthdate) >= 18
 
   const validateEdu = () => form.email.trim().toLowerCase().endsWith('.edu')
 
@@ -66,8 +65,7 @@ export default function SignUp() {
       router.push('/login')
       return
     }
-    const birth = new Date(form.birthdate)
-    const age = new Date().getFullYear() - birth.getFullYear()
+    const age = ageFrom(form.birthdate)
 
     let photo_url = null
     if (form.photo) {
@@ -86,6 +84,7 @@ export default function SignUp() {
       id: user.id,
       name: form.name,
       gender: form.gender,
+      interested_in: form.interested_in,
       intent: form.intent,
       bio: form.bio,
       edu_email: form.email.trim().toLowerCase(),
@@ -179,10 +178,20 @@ export default function SignUp() {
                 </button>
               ))}
             </div>
+            <p className="text-gray-400 text-sm">Show me</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[['Male', 'Men'], ['Female', 'Women'], ['everyone', 'Everyone']].map(([v, l]) => (
+                <button key={v} onClick={() => update('interested_in', v)}
+                  className={`py-3 rounded-xl border transition ${form.interested_in === v ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
             {error && <p className="text-red-500">{error}</p>}
             <button onClick={() => {
               if (!form.name) { setError('Please enter your name.'); return }
               if (!form.gender) { setError('Please select your gender.'); return }
+              if (!form.interested_in) { setError('Please choose who you want to see.'); return }
               setError(''); setStep(4)
             }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
               Continue
@@ -254,7 +263,7 @@ export default function SignUp() {
             <input type="checkbox" className="w-5 h-5 accent-rose-500"
   onChange={e => update('agreed', e.target.checked as any)}
 />
-              <span>I agree to the Terms of Use and Privacy Policy.</span>
+              <span>I agree to the <Link href="/terms" target="_blank" className="underline">Terms of Use</Link> and <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.</span>
             </label>
             {error && <p className="text-red-500">{error}</p>}
             <button onClick={() => {

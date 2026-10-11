@@ -35,7 +35,7 @@ export default function Swipe() {
 
       const { data: myProfile } = await supabase
         .from('profiles')
-        .select('intent')
+        .select('intent, gender, interested_in')
         .eq('id', user.id)
         .single()
 
@@ -66,7 +66,14 @@ export default function Swipe() {
 
       const { data: profilesData } = await query
 
-      setProfiles(profilesData || [])
+      const wants = (interest: string | null, gender: string | null) =>
+        !interest || interest === 'everyone' || interest === gender
+      const filtered = (profilesData || []).filter((p: any) =>
+        p.name && p.intent &&
+        wants(myProfile?.interested_in, p.gender) &&
+        wants(p.interested_in, myProfile?.gender))
+
+      setProfiles(filtered)
       setLoading(false)
     }
     init()

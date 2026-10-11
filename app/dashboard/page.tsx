@@ -41,6 +41,10 @@ export default function Dashboard() {
             💬 Matches
           </button>
         </div>
+        <button onClick={() => router.push('/settings')}
+          className="w-full bg-gray-900 hover:bg-gray-800 py-4 rounded-2xl font-semibold transition">
+          ⚙️ Edit Profile
+        </button>
       </div>
     </main>
   )
