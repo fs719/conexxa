@@ -39,6 +39,12 @@ export default function Matches() {
   }, [])
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date()
+  const timeLeft = (expiresAt: string) => {
+    const ms = new Date(expiresAt).getTime() - Date.now()
+    const h = Math.floor(ms / 3600000)
+    const m = Math.floor((ms % 3600000) / 60000)
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`
+  }
 
   if (loading) return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -80,7 +86,7 @@ export default function Matches() {
                 ) : match.chat_unlocked ? (
                   <p className="text-green-400 text-sm">Chat unlocked ✓</p>
                 ) : (
-                  <p className="text-yellow-400 text-sm">Answer icebreaker to unlock chat</p>
+                  <p className="text-yellow-400 text-sm">Answer to unlock chat · {timeLeft(match.expires_at)}</p>
                 )}
               </div>
             </div>

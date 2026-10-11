@@ -51,9 +51,16 @@ export default function Swipe() {
         .select('blocked_id')
         .eq('blocker_id', user.id)
 
+      let blockedByIds: string[] = []
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/blocked-by', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        blockedByIds = (await r.json()).ids || []
+      } catch {}
+
       const swipedIds = swipedData?.map((s: any) => s.swiped_id) || []
       const blockedIds = blockedData?.map((b: any) => b.blocked_id) || []
-      const excludedIds = [...new Set([...swipedIds, ...blockedIds])]
+      const excludedIds = [...new Set([...swipedIds, ...blockedIds, ...blockedByIds])]
 
       let query = supabase
         .from('profiles')
