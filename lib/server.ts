@@ -32,3 +32,16 @@ export async function sendCodeEmail(to: string, code: string, purpose: string) {
   })
   if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
 }
+
+// Find an auth user id by email (works even if the profile row was never saved).
+export async function findUserId(email: string): Promise<string | null> {
+  const db = admin()
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error || !data) return null
+    const u = data.users.find(x => (x.email || '').toLowerCase() === email)
+    if (u) return u.id
+    if (data.users.length < 1000) return null
+  }
+  return null
+}

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'crypto'
-import { admin, hashCode, normEmail } from '@/lib/server'
+import { admin, findUserId, hashCode, normEmail } from '@/lib/server'
 
 const bad = (error: string, status = 400) => Response.json({ error }, { status })
 
@@ -33,9 +33,9 @@ export async function POST(req: Request) {
     if (error) return bad(/already|registered|exists/i.test(error.message)
       ? 'An account with this email already exists. Log in instead.' : error.message)
   } else {
-    const { data: p } = await db.from('profiles').select('id').eq('edu_email', email).maybeSingle()
-    if (!p) return bad('Account not found.')
-    const { error } = await db.auth.admin.updateUserById(p.id, { password })
+    const uid = await findUserId(email)
+    if (!uid) return bad('Account not found.')
+    const { error } = await db.auth.admin.updateUserById(uid, { password })
     if (error) return bad(error.message)
   }
   return Response.json({ ok: true })

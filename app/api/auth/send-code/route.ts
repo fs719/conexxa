@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto'
-import { admin, hashCode, isEdu, normEmail, sendCodeEmail } from '@/lib/server'
+import { admin, findUserId, hashCode, isEdu, normEmail, sendCodeEmail } from '@/lib/server'
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
@@ -14,8 +14,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Please wait a few seconds before requesting another code.' }, { status: 429 })
 
   if (purpose === 'reset') {
-    const { data: p } = await db.from('profiles').select('id').eq('edu_email', email).maybeSingle()
-    if (!p) return Response.json({ ok: true }) // don't reveal which emails exist
+    if (!(await findUserId(email))) return Response.json({ ok: true }) // don't reveal which emails exist
   }
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
