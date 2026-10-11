@@ -26,6 +26,7 @@ export default function Chat() {
         .eq('id', id)
         .single()
 
+      if (!matchData || !matchData.chat_unlocked) { router.push('/matches'); return }
       setMatch(matchData)
 
       const otherId = matchData.user1_id === user.id ? matchData.user2_id : matchData.user1_id

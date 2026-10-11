@@ -14,6 +14,8 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUser(user)
+      const { data: prof } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      if (!prof?.name) { router.push('/signup'); return }
       const { data: ms } = await supabase.from('matches').select('user1_answer,user2_answer,user1_id,expires_at,chat_unlocked')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       setPending((ms || []).filter((m: any) => !m.chat_unlocked && new Date(m.expires_at) > new Date()).length)

@@ -31,7 +31,13 @@ export default function Matches() {
             .single()
           return { ...match, otherProfile: profile }
         }))
-        setMatches(enriched)
+        const seen = new Set<string>()
+        const unique = enriched.filter((m: any) => {
+          const other = m.user1_id === user.id ? m.user2_id : m.user1_id
+          if (seen.has(other)) return false
+          seen.add(other); return true
+        })
+        setMatches(unique)
       }
       setLoading(false)
     }

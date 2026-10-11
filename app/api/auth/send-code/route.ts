@@ -8,6 +8,11 @@ export async function POST(req: Request) {
   if (!isEdu(email)) return Response.json({ error: 'Please use a valid .edu email.' }, { status: 400 })
 
   const db = admin()
+  const since = new Date(Date.now() - 3600_000).toISOString()
+  const { count } = await db.from('email_codes').select('*', { count: 'exact', head: true }).gte('created_at', since)
+  if ((count ?? 0) > 150)
+    return Response.json({ error: 'We are very busy right now. Please try again in a bit.' }, { status: 429 })
+
   const { data: existing } = await db
     .from('email_codes').select('created_at').eq('email', email).eq('purpose', purpose).maybeSingle()
   if (existing && Date.now() - new Date(existing.created_at).getTime() < 45_000)

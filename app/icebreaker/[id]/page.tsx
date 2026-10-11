@@ -24,6 +24,8 @@ export default function Icebreaker() {
         .eq('id', id)
         .single()
 
+      if (!matchData || matchData.chat_unlocked) { router.push(matchData ? `/chat/${id}` : '/matches'); return }
+      if (new Date(matchData.expires_at) < new Date()) { router.push('/matches'); return }
       setMatch(matchData)
       setLoading(false)
     }

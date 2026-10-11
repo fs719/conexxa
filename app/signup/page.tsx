@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -11,6 +11,7 @@ export default function SignUp() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
+  const [hasSession, setHasSession] = useState(false)
   const [code, setCode] = useState('')
   const [form, setForm] = useState({
     birthdate: '',
@@ -25,6 +26,12 @@ export default function SignUp() {
     photo: null as any,
     agreed: false,
   })
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) { setHasSession(true); setForm(prev => ({ ...prev, email: user.email || '' })) }
+    })
+  }, [])
 
   const update = (field: string, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }))
@@ -116,7 +123,7 @@ export default function SignUp() {
             <button onClick={() => {
               if (!form.birthdate) { setError('Please enter your birthdate.'); return }
               if (!validateAge()) { setError('Sorry, you must be 18 or older to use Conexxa.'); return }
-              setError(''); setStep(2)
+              setError(''); setStep(hasSession ? 3 : 2)
             }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
               Continue
             </button>
