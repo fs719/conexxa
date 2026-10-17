@@ -47,7 +47,7 @@ async function main() {
     const r = await text(p); ok(`page ${p} loads`, r.status === 200, `status ${r.status}`)
   }
   ok('crush landing page text', (await text('/?from=crush')).body.includes('Someone has a crush on you'))
-  ok('normal landing text', (await text('/')).body.includes('Got a crush'))
+  ok('normal landing text', (await text('/')).body.includes('Match first'))
   ok('bad opt-out link rejected', (await text('/api/crush/optout?e=a@b.edu&t=bad')).body.includes('not valid'))
 
   // Diagnostics: is the live site talking to the same Supabase project as these keys?

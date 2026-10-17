@@ -18,9 +18,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
           </>
         ) : (
           <>
-            <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.02]">Got a crush?<br />Tell them. Secretly.</h1>
+            <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.02]">Match first.<br />Then talk.</h1>
             <p className="text-mute text-lg mt-6 leading-snug">
-              Send a secret crush to anyone at your school. They never know it's you unless they like you back. Then one question opens the chat.
+              Like someone. If they like you back, you both answer one question and the chat opens.
+            </p>
+            <p className="text-lg mt-4 leading-snug">
+              Or send a <span className="font-semibold text-flame">secret crush</span> to anyone at your school. They only find out it's you if they like you back.
             </p>
           </>
         )}
