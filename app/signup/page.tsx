@@ -110,6 +110,15 @@ export default function SignUp() {
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        {step !== 3 && (
+          <button onClick={() => {
+            setError('')
+            if (step === 1) router.push('/')
+            else if (step === 2 && codeSent) { setCodeSent(false); setCode('') }
+            else if (step === 2) setStep(1)
+            else setStep(step - 1 === 3 ? 3 : step - 1)
+          }} className="text-gray-400 hover:text-white mb-6">← Back</button>
+        )}
 
         {step === 1 && (
           <div className="space-y-6">
@@ -162,6 +171,9 @@ export default function SignUp() {
               className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-center text-2xl tracking-widest"
             />
             {error && <p className="text-red-500">{error}</p>}
+            {error.includes('already exists') && (
+              <Link href="/login" className="block text-center text-rose-400 hover:text-rose-300">Go to Log In</Link>
+            )}
             <button disabled={loading || code.length !== 6} onClick={handleVerify}
               className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
               {loading ? 'Verifying...' : 'Verify'}
