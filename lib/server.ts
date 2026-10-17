@@ -66,3 +66,16 @@ export async function sendCrushEmail(to: string) {
   })
   if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
 }
+
+
+// Secret crushes sent in the last 7 days. If a school domain is given, only crushes sent by people at that school.
+export async function weeklyCrushes(db: ReturnType<typeof admin>, domain?: string): Promise<number> {
+  const since = new Date(Date.now() - 7 * 86400_000).toISOString()
+  const { data } = await db.from('crushes').select('sender_id').gte('created_at', since).limit(10000)
+  const ids = [...new Set((data || []).map((r: any) => r.sender_id))]
+  if (!domain) return (data || []).length
+  if (!ids.length) return 0
+  const { data: ps } = await db.from('profiles').select('id').in('id', ids).eq('school_domain', domain)
+  const mine = new Set((ps || []).map((r: any) => r.id))
+  return (data || []).filter((r: any) => mine.has(r.sender_id)).length
+}

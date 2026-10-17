@@ -17,6 +17,8 @@ export default function CrushPage() {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const [token, setToken] = useState('')
+  const [pulse, setPulse] = useState<{ n: number; scope: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const load = async (t: string) => {
     const r = await fetch('/api/crush', { headers: { Authorization: `Bearer ${t}` } })
@@ -29,6 +31,7 @@ export default function CrushPage() {
       if (!session) { router.push('/login'); return }
       setToken(session.access_token)
       load(session.access_token)
+      fetch('/api/pulse', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => d && setPulse(d)).catch(() => {})
     })()
   }, [])
 
@@ -50,6 +53,7 @@ export default function CrushPage() {
           <Link href="/swipe" aria-label="Back" className="text-mute hover:text-white text-xl">←</Link>
           <h1 className="text-2xl font-bold">Secret crush</h1>
         </div>
+        {pulse && pulse.n > 0 && <p className="text-ok text-sm">{pulse.n} secret crushes sent {pulse.scope === 'school' ? 'at your school' : 'on campuses'} this week</p>}
         <p className="text-mute">Put in their college email. They get a note that someone has a crush on them. They never find out it's you unless they like you back.</p>
 
         {left > 0 ? (
@@ -62,6 +66,11 @@ export default function CrushPage() {
             <p className="text-mute text-xs text-center">{left} of 3 left</p>
           </form>
         ) : <p className="text-mute text-center">You've used all 3 secret crushes.</p>}
+
+        <button type="button" onClick={async () => {
+          const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
+          try { if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return } await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+        }} className="w-full border border-line hover:border-white/30 py-3 rounded-full font-semibold transition">{copied ? 'Link copied' : 'Send this to your group chat'}</button>
 
         {crushes.length > 0 && (
           <div className="space-y-2">

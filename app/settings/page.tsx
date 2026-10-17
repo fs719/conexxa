@@ -45,7 +45,7 @@ export default function Settings() {
 
   const [copied, setCopied] = useState(false)
   const invite = async () => {
-    const url = 'https://conexxa.net', text = 'Join me on Conexxa, the dating app for college students.'
+    const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
     try {
       if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return }
       await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000)
