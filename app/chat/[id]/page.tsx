@@ -85,6 +85,12 @@ export default function Chat() {
 
   const retry = (m: Msg) => { pendingRef.current = pendingRef.current.filter(x => x.id !== m.id); setMessages(prev => prev.filter(x => x.id !== m.id)); setText(m.content) }
 
+  const leave = async () => {
+    if (!confirm('End this match? They will not be told, and you will not see each other again.')) return
+    const r = await fetch('/api/unmatch', { method: 'POST', headers: headers(), body: JSON.stringify({ matchId: id }) })
+    if (r.ok) router.push('/matches')
+  }
+
   if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Opening chat...</main>
 
   const mine = (m: Msg) => m.sender_id === userId
@@ -100,6 +106,7 @@ export default function Chat() {
           {other?.photo_url ? <img src={other.photo_url} alt="" className="w-full h-full object-cover" /> : (other?.name || '?')[0].toUpperCase()}
         </div>
         <h1 className="font-bold text-lg flex-1 truncate">{other?.name || 'Match'}</h1>
+        <button onClick={leave} className="text-sm text-mute hover:text-white">Not feeling it</button>
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 

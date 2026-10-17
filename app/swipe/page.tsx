@@ -5,12 +5,17 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 
-type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string }
+type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; edu_email?: string }
+const domain = (e?: string) => (e || '').split('@')[1]?.toLowerCase() || ''
+const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
+  !interest || interest === 'everyone' || interest === gender
 
 export default function Swipe() {
   const router = useRouter()
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [current, setCurrent] = useState(0)
+  const [pool, setPool] = useState<Profile[]>([])
+  const [seen, setSeen] = useState<string[]>([])
+  const [show, setShow] = useState<string>('everyone')
+  const uid = useRef('')
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<any>(null)
   const [match, setMatch] = useState<{ id: string; other: Profile } | null>(null)
@@ -24,9 +29,11 @@ export default function Swipe() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in').eq('id', user.id).single()
+      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, edu_email').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
+      setShow(myProfile.interested_in || 'everyone')
+      uid.current = user.id
 
       const { data: swipedData } = await supabase.from('swipes').select('swiped_id').eq('swiper_id', user.id)
       const { data: blockedData } = await supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id)
@@ -47,18 +54,35 @@ export default function Swipe() {
       if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
       const { data } = await query
 
-      const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
-        !interest || interest === 'everyone' || interest === gender
-      const list = (data || []).filter((p: any) =>
-        p.name && p.intent && wants(myProfile.interested_in, p.gender) && wants(p.interested_in, myProfile.gender))
-      setProfiles(list.sort(() => Math.random() - 0.5))
+      const mine = domain(myProfile.edu_email)
+      const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
+      // Your school first, then everyone else. Each group is shuffled.
+      const shuffle = (a: any[]) => a.sort(() => Math.random() - 0.5)
+      const same = shuffle(list.filter((p: any) => mine && domain(p.edu_email) === mine))
+      const rest = shuffle(list.filter((p: any) => !(mine && domain(p.edu_email) === mine)))
+      setPool([...same, ...rest])
       setLoading(false)
     }
     init()
   }, [])
 
+  const profiles = pool.filter(p => !seen.includes(p.id) && wants(show, p.gender))
+  const next = (id: string) => setSeen(s => [...s, id])
+
+  const choose = async (v: string) => {
+    setShow(v)
+    if (uid.current) await supabase.from('profiles').update({ interested_in: v }).eq('id', uid.current)
+  }
+
+  const know = async () => {
+    const p = profiles[0]
+    if (!p || busy.current) return
+    next(p.id)
+    await supabase.from('blocks').insert({ blocker_id: uid.current, blocked_id: p.id })
+  }
+
   const commit = async (direction: 'like' | 'skip') => {
-    const profile = profiles[current]
+    const profile = profiles[0]
     if (!profile || busy.current) return
     busy.current = true
     setFly(direction === 'like' ? 1 : -1)
@@ -73,7 +97,7 @@ export default function Swipe() {
     setFly(0); setDx(0)
     busy.current = false
     if (data.matched) { setMatch({ id: data.id, other: profile }); return }
-    setCurrent(c => c + 1)
+    next(profile.id)
   }
 
   const onDown = (e: React.PointerEvent) => { start.current = e.clientX; (e.target as Element).setPointerCapture?.(e.pointerId) }
@@ -102,17 +126,18 @@ export default function Swipe() {
         <p className="text-mute">You and {match.other.name} liked each other. Answer one question together to open the chat. You have 24 hours.</p>
         <div className="space-y-3">
           <button onClick={() => router.push(`/icebreaker/${match.id}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">Answer the question</button>
-          <button onClick={() => { setMatch(null); setCurrent(c => c + 1) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>
+          <button onClick={() => { next(match.other.id); setMatch(null) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>
         </div>
       </div>
     </main>
   )
 
-  const profile = profiles[current]
+  const profile = profiles[0]
 
   if (!profile) return (
     <main className="min-h-dvh bg-ink text-white pb-24">
-      <div className="max-w-md mx-auto px-6 pt-32 text-center space-y-5">
+      <div className="max-w-md mx-auto px-4 pt-4"><Switch show={show} choose={choose} /></div>
+      <div className="max-w-md mx-auto px-6 pt-24 text-center space-y-5">
         <h1 className="text-3xl font-bold">You're all caught up</h1>
         <p className="text-mute">New people join every day. Invite a friend and you'll both see more profiles.</p>
         <InviteButton />
@@ -131,6 +156,7 @@ export default function Swipe() {
           <h1 className="text-2xl font-bold">Conexxa</h1>
           <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
         </div>
+        <div className="mb-3"><Switch show={show} choose={choose} /></div>
 
         <div
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
@@ -160,16 +186,28 @@ export default function Swipe() {
           <button aria-label="Pass" onClick={() => commit('skip')} className="w-16 h-16 rounded-full bg-panel border border-line text-2xl text-mute hover:text-white hover:border-white/40 transition active:scale-95">✕</button>
           <button aria-label="Like" onClick={() => commit('like')} className="w-20 h-16 rounded-full btn-flame text-2xl shadow-lg shadow-flame/20">♥</button>
         </div>
+        <button onClick={know} className="block mx-auto mt-4 text-sm text-mute hover:text-white">I know them</button>
       </div>
       <BottomNav />
     </main>
   )
 }
 
+function Switch({ show, choose }: { show: string; choose: (v: string) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1 p-1 rounded-full bg-panel border border-line text-sm">
+      {[['Male', 'Guys'], ['Female', 'Girls'], ['everyone', 'Both']].map(([v, l]) => (
+        <button key={v} onClick={() => choose(v)}
+          className={`py-2 rounded-full transition ${show === v ? 'btn-flame font-semibold' : 'text-mute hover:text-white'}`}>{l}</button>
+      ))}
+    </div>
+  )
+}
+
 function InviteButton() {
   const [copied, setCopied] = useState(false)
   const go = async () => {
-    const url = 'https://conexxa.net', text = 'Join me on Conexxa, the dating app for college students.'
+    const url = 'https://conexxa.net', text = 'Join me on Conexxa. Meet someone from your campus.'
     try {
       if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return }
       await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000)
