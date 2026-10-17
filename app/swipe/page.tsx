@@ -7,6 +7,8 @@ import BottomNav from '@/components/BottomNav'
 import { schoolFrom } from '@/lib/school'
 
 type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; edu_email?: string }
+// Flip to true before launch to make a photo mandatory before swiping.
+const REQUIRE_PHOTO = false
 const domain = (e?: string) => (e || '').split('@')[1]?.toLowerCase() || ''
 const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
   !interest || interest === 'everyone' || interest === gender
@@ -37,7 +39,7 @@ export default function Swipe() {
       const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, edu_email').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
-      if (!myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
+      if (REQUIRE_PHOTO && !myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
       setShow(myProfile.interested_in || 'everyone')
       uid.current = user.id
 
