@@ -1,0 +1,24 @@
+name: e2e
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ['supabase/**', '**/*.md']
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      - name: Wait for the Vercel deploy
+        if: github.event_name == 'push'
+        run: sleep 180
+      - run: node scripts/e2e.mjs
+        env:
+          BASE_URL: https://conexxa.net
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

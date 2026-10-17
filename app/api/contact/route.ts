@@ -43,8 +43,15 @@ export async function POST(req: Request) {
   const value = clean(kind, String(body.value || ''))
   if (!value) return Response.json({ error: kind === 'phone' ? 'Enter a valid phone number.' : 'Enter a valid username.' }, { status: 400 })
   const { data: row } = await a.db.from('contact_exchange').select('*').eq('match_id', matchId).maybeSingle()
-  const { error } = await a.db.from('contact_exchange').upsert(
-    { match_id: matchId, ...(row || {}), [`${a.me}_kind`]: kind, [`${a.me}_value`]: value }, { onConflict: 'match_id' })
+  // Write only my columns so simultaneous opt-ins never overwrite each other.
+  const mine = { [`${a.me}_kind`]: kind, [`${a.me}_value`]: value }
+  let error: { message: string } | null = null
+  if (row) {
+    error = (await a.db.from('contact_exchange').update(mine).eq('match_id', matchId)).error
+  } else {
+    const ins = await a.db.from('contact_exchange').insert({ match_id: matchId, ...mine })
+    error = ins.error ? (await a.db.from('contact_exchange').update(mine).eq('match_id', matchId)).error : null
+  }
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return view(a, matchId)
 }

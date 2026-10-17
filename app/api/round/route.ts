@@ -51,8 +51,15 @@ export async function POST(req: Request) {
   const { data: row } = await a.db.from('match_rounds').select('*').eq('match_id', matchId).eq('level', level).maybeSingle()
   if (row?.[`${a.me}_answers`]) return Response.json({ error: 'You already answered this round.' }, { status: 409 })
 
-  const { error } = await a.db.from('match_rounds').upsert(
-    { match_id: matchId, level, ...(row || {}), [`${a.me}_answers`]: answers }, { onConflict: 'match_id,level' })
+  // Update only my column so two people answering at the same moment never overwrite each other.
+  const col = `${a.me}_answers`
+  let error: { message: string } | null = null
+  if (row) {
+    error = (await a.db.from('match_rounds').update({ [col]: answers }).eq('match_id', matchId).eq('level', level)).error
+  } else {
+    const ins = await a.db.from('match_rounds').insert({ match_id: matchId, level, [col]: answers })
+    error = ins.error ? (await a.db.from('match_rounds').update({ [col]: answers }).eq('match_id', matchId).eq('level', level)).error : null
+  }
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return status(a, matchId)
 }
