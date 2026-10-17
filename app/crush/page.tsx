@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 
-type Crush = { id: string; email: string; status: 'waiting' | 'joined' | 'matched' }
-const LABEL = { waiting: 'Waiting for them to join', joined: 'They joined. Waiting on a like back', matched: "It's a match" }
+type Crush = { id: string; email: string; status: 'sent' | 'matched' }
+const LABEL = { sent: 'Sent', matched: "It's a match" }
 
 export default function CrushPage() {
   const router = useRouter()

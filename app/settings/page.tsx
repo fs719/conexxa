@@ -89,6 +89,7 @@ export default function Settings() {
             <button key={v} onClick={() => setForm({ ...form, intent: v })} className={pill(form.intent === v)}>{l}</button>
           ))}
         </div>
+        <p className="text-mute text-xs">Casual profiles show blurred until you match.</p>
         <p className="text-mute text-sm">Show me</p>
         <div className="grid grid-cols-3 gap-3">
           {[['Male', 'Men'], ['Female', 'Women'], ['everyone', 'Everyone']].map(([v, l]) => (

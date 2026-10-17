@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   const out = []
   for (const c of mine || []) {
     const { data: p } = await db.from('profiles').select('id').eq('edu_email', c.target_email).maybeSingle()
-    let status: 'waiting' | 'joined' | 'matched' = p ? 'joined' : 'waiting'
+    let status: 'sent' | 'matched' = 'sent'
     if (p) {
       const { data: m } = await db.from('matches').select('id')
         .or(`and(user1_id.eq.${user.id},user2_id.eq.${p.id}),and(user1_id.eq.${p.id},user2_id.eq.${user.id})`).limit(1)

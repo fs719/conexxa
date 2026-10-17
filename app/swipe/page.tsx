@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
+import { schoolFrom } from '@/lib/school'
 
 type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; edu_email?: string }
 const domain = (e?: string) => (e || '').split('@')[1]?.toLowerCase() || ''
@@ -16,6 +17,9 @@ export default function Swipe() {
   const [seen, setSeen] = useState<string[]>([])
   const [show, setShow] = useState<string>('everyone')
   const [admirers, setAdmirers] = useState<string[]>([])
+  const [needPhoto, setNeedPhoto] = useState(false)
+  const [upBusy, setUpBusy] = useState(false)
+  const [upErr, setUpErr] = useState('')
   const uid = useRef('')
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<any>(null)
@@ -33,6 +37,7 @@ export default function Swipe() {
       const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, edu_email').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
+      if (!myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
       setShow(myProfile.interested_in || 'everyone')
       uid.current = user.id
 
@@ -94,6 +99,18 @@ export default function Swipe() {
     await supabase.from('blocks').insert({ blocker_id: uid.current, blocked_id: p.id })
   }
 
+  const addPhoto = async (f: File | undefined) => {
+    if (!f || !uid.current) return
+    setUpBusy(true); setUpErr('')
+    const ext = f.name.split('.').pop()
+    const path = `${uid.current}/avatar.${ext}`
+    const { error } = await supabase.storage.from('avatars').upload(path, f, { upsert: true })
+    if (error) { setUpErr('Upload failed. Use a jpg, png or webp under 5MB.'); setUpBusy(false); return }
+    const url = `${supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
+    await supabase.from('profiles').update({ photo_url: url }).eq('id', uid.current)
+    window.location.reload()
+  }
+
   const commit = async (direction: 'like' | 'skip') => {
     const profile = profiles[0]
     if (!profile || busy.current) return
@@ -123,6 +140,20 @@ export default function Swipe() {
     else setDx(0)
   }
 
+  if (needPhoto) return (
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-6">
+        <h1 className="text-3xl font-bold">Add a photo to start</h1>
+        <p className="text-mute">Everyone here is real. A photo is how people know that.</p>
+        <label className="block btn-flame py-4 rounded-full font-semibold text-lg cursor-pointer">
+          {upBusy ? 'Uploading...' : 'Choose a photo'}
+          <input type="file" accept="image/*" className="hidden" disabled={upBusy} onChange={e => addPhoto(e.target.files?.[0])} />
+        </label>
+        {upErr && <p className="text-flame text-sm">{upErr}</p>}
+      </div>
+    </main>
+  )
+
   if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Finding people near you...</main>
 
   if (match) return (
@@ -132,7 +163,7 @@ export default function Swipe() {
         <div className="flex justify-center items-center">
           {[me, match.other].map((p: any, i) => (
             <div key={i} className={`w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}>
-              {p?.photo_url ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" /> : (p?.name || '?')[0].toUpperCase()}
+              {p?.photo_url ? <img src={p.photo_url} alt="" className={`w-full h-full object-cover ${i && p.intent !== 'serious' ? 'unblur' : ''}`} /> : (p?.name || '?')[0].toUpperCase()}
             </div>
           ))}
         </div>
@@ -146,6 +177,7 @@ export default function Swipe() {
   )
 
   const profile = profiles[0]
+  const mystery = profile?.intent !== 'serious'
 
   if (!profile) return (
     <main className="min-h-dvh bg-ink text-white pb-24">
@@ -188,17 +220,18 @@ export default function Swipe() {
         >
           <div className="aspect-[3/4] w-full bg-raised flex items-center justify-center">
             {profile.photo_url
-              ? <img src={profile.photo_url} alt={profile.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+              ? <img src={profile.photo_url} alt={mystery ? '' : profile.name} draggable={false} className={`w-full h-full object-cover pointer-events-none ${mystery ? 'blur-2xl scale-125' : ''}`} />
               : <span className="text-8xl font-display text-mute">{profile.name[0].toUpperCase()}</span>}
           </div>
           <div className="absolute inset-x-0 bottom-0 p-5 pt-24 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
             <div className="flex items-baseline gap-2">
-              <h2 className="text-3xl font-bold">{profile.name}</h2>
+              <h2 className="text-3xl font-bold">{mystery ? 'Mystery' : profile.name}</h2>
               {profile.age ? <span className="text-xl text-white/80">{profile.age}</span> : null}
             </div>
             <span className="inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">
               {profile.intent === 'serious' ? 'Looking for something serious' : 'Keeping it casual'}
             </span>
+            {schoolFrom(profile.edu_email) && <span className="inline-block mt-1 ml-2 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">✓ {schoolFrom(profile.edu_email)}</span>}
             {profile.bio && <p className="mt-3 text-white/90 leading-snug">{profile.bio}</p>}
           </div>
           <button onPointerDown={e => e.stopPropagation()} onClick={know}
