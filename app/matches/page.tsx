@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { parseTs } from '@/lib/time'
 import { useRouter } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
 
 export default function Matches() {
   const router = useRouter()
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string>('')
+  const [userId, setUserId] = useState('')
+  const [, tick] = useState(0)
 
   useEffect(() => {
     const init = async () => {
@@ -20,115 +22,84 @@ export default function Matches() {
         await fetch('/api/swipe', { headers: { Authorization: `Bearer ${session?.access_token}` } })
       } catch {}
 
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
+      const { data: matchData } = await supabase.from('matches').select('*')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`).order('created_at', { ascending: false })
 
-      if (matchData) {
-        const enriched = await Promise.all(matchData.map(async (match) => {
-          const otherId = match.user1_id === user.id ? match.user2_id : match.user1_id
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, photo_url')
-            .eq('id', otherId)
-            .single()
-          return { ...match, otherProfile: profile }
-        }))
-        const seen = new Set<string>()
-        const unique = enriched.filter((m: any) => {
-          const other = m.user1_id === user.id ? m.user2_id : m.user1_id
-          if (seen.has(other)) return false
-          seen.add(other); return true
-        })
-        setMatches(unique)
-      }
+      const enriched = await Promise.all((matchData || []).map(async (m: any) => {
+        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id
+        const { data: p } = await supabase.from('profiles').select('name, photo_url').eq('id', otherId).single()
+        return { ...m, other: p }
+      }))
+      const seen = new Set<string>()
+      setMatches(enriched.filter((m: any) => {
+        const o = m.user1_id === user.id ? m.user2_id : m.user1_id
+        if (seen.has(o)) return false
+        seen.add(o); return true
+      }))
       setLoading(false)
     }
     init()
+    const t = setInterval(() => tick(n => n + 1), 30000)
+    return () => clearInterval(t)
   }, [])
 
-  const isExpired = (expiresAt: string) => parseTs(expiresAt) < new Date()
-  const timeLeft = (expiresAt: string) => {
-    const ms = parseTs(expiresAt).getTime() - Date.now()
-    const h = Math.floor(ms / 3600000)
-    const m = Math.floor((ms % 3600000) / 60000)
-    return h > 0 ? `${h}h ${m}m left` : `${m}m left`
+  const expired = (m: any) => !m.chat_unlocked && parseTs(m.expires_at) < new Date()
+  const left = (m: any) => {
+    const ms = parseTs(m.expires_at).getTime() - Date.now()
+    const h = Math.floor(ms / 3600000), mi = Math.floor((ms % 3600000) / 60000)
+    return h > 0 ? `${h}h ${mi}m left` : `${mi}m left`
+  }
+  const myAnswer = (m: any) => (m.user1_id === userId ? m.user1_answer : m.user2_answer)
+
+  const live = matches.filter(m => !expired(m))
+  const gone = matches.filter(expired)
+
+  const Row = ({ m }: { m: any }) => {
+    const unlocked = m.chat_unlocked
+    const answered = !!myAnswer(m)
+    const go = () => router.push(unlocked ? `/chat/${m.id}` : `/icebreaker/${m.id}`)
+    return (
+      <button onClick={go} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-panel border border-line text-left hover:border-white/20 transition">
+        <div className="w-14 h-14 rounded-full overflow-hidden bg-raised flex items-center justify-center text-xl font-bold shrink-0">
+          {m.other?.photo_url ? <img src={m.other.photo_url} alt="" className="w-full h-full object-cover" /> : (m.other?.name || '?')[0].toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-lg truncate">{m.other?.name || 'Match'}</p>
+          <p className={`text-sm ${unlocked ? 'text-ok' : answered ? 'text-mute' : 'text-ember'}`}>
+            {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : `Answer one question · ${left(m)}`}
+          </p>
+        </div>
+        <span className="text-mute text-xl">›</span>
+      </button>
+    )
   }
 
-  if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p>Loading matches...</p>
-    </main>
-  )
-
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-md mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-white">← Back</button>
-          <h1 className="text-2xl font-bold">Your Matches</h1>
-        </div>
-
-        {matches.length === 0 && (
-          <div className="text-center py-20 space-y-4">
-            <div className="text-6xl">💘</div>
-            <p className="text-gray-400">No matches yet. Keep swiping!</p>
-            <button onClick={() => router.push('/swipe')}
-              className="bg-rose-500 hover:bg-rose-600 px-8 py-3 rounded-full font-semibold transition">
-              Start Swiping
-            </button>
+    <main className="min-h-dvh bg-ink text-white pb-24">
+      <div className="max-w-md mx-auto px-4 pt-6 space-y-3">
+        <h1 className="text-3xl font-bold mb-2">Matches</h1>
+        {loading && <p className="text-mute">Loading...</p>}
+        {!loading && live.length === 0 && (
+          <div className="pt-16 text-center space-y-4">
+            <p className="text-xl font-semibold">No matches yet</p>
+            <p className="text-mute">When you and someone else like each other, they show up here.</p>
+            <button onClick={() => router.push('/swipe')} className="btn-flame px-8 py-3 rounded-full font-semibold">Go discover</button>
           </div>
         )}
-
-        {matches.map(match => (
-          <div key={match.id} className="bg-gray-900 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-2xl">
-                {match.otherProfile?.photo_url ? (
-                  <img src={match.otherProfile.photo_url} className="w-full h-full object-cover rounded-full" />
-                ) : '👤'}
+        {live.map(m => <Row key={m.id} m={m} />)}
+        {gone.length > 0 && (
+          <>
+            <p className="text-sm text-mute pt-4">Expired</p>
+            {gone.map(m => (
+              <div key={m.id} className="flex items-center gap-4 p-4 rounded-2xl border border-line opacity-50">
+                <div className="w-12 h-12 rounded-full bg-raised flex items-center justify-center font-bold">{(m.other?.name || '?')[0].toUpperCase()}</div>
+                <p className="font-medium">{m.other?.name || 'Match'}</p>
               </div>
-              <div>
-                <h2 className="font-bold">{match.otherProfile?.name || 'Unknown'}</h2>
-                {isExpired(match.expires_at) && !match.chat_unlocked ? (
-                  <p className="text-red-400 text-sm">Expired</p>
-                ) : match.chat_unlocked ? (
-                  <p className="text-green-400 text-sm">Chat unlocked ✓</p>
-                ) : (
-                  <p className="text-yellow-400 text-sm">
-                    {(match.user1_id === userId ? match.user1_answer : match.user2_answer)
-                      ? 'Waiting for them to answer' : 'Answer to unlock chat'} · {timeLeft(match.expires_at)}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {!match.chat_unlocked && !isExpired(match.expires_at) && (
-              <div className="bg-gray-800 rounded-xl p-3 space-y-2">
-                <p className="text-sm text-gray-400">Icebreaker:</p>
-                <p className="text-white">{match.icebreaker_prompt}</p>
-                {(match.user1_id === userId ? match.user1_answer : match.user2_answer) ? (
-                  <p className="text-sm text-gray-500">You answered. Chat opens when they do.</p>
-                ) : (
-                  <button onClick={() => router.push(`/icebreaker/${match.id}`)}
-                    className="w-full bg-rose-500 hover:bg-rose-600 py-2 rounded-xl text-sm font-semibold transition">
-                    Answer Now
-                  </button>
-                )}
-              </div>
-            )}
-
-            {match.chat_unlocked && (
-              <button onClick={() => router.push(`/chat/${match.id}`)}
-                className="w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-xl text-sm font-semibold transition">
-                Open Chat →
-              </button>
-            )}
-          </div>
-        ))}
+            ))}
+          </>
+        )}
       </div>
+      <BottomNav />
     </main>
   )
 }

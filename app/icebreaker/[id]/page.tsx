@@ -56,47 +56,37 @@ export default function Icebreaker() {
     else setSubmitted(true)
   }
 
-  if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center"><p>Loading...</p></main>
-  )
+  if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Loading...</main>
 
   if (submitted) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        <div className="text-6xl">⏳</div>
-        <h1 className="text-2xl font-bold">Answer submitted!</h1>
-        <p className="text-gray-400">Waiting for your match to answer. Chat unlocks when you both have.</p>
-        <button onClick={() => router.push('/matches')}
-          className="bg-rose-500 hover:bg-rose-600 px-8 py-3 rounded-full font-semibold transition">
-          Back to Matches
-        </button>
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-5">
+        <h1 className="text-3xl font-bold">You're in</h1>
+        <p className="text-mute">Waiting for them to answer. This page opens the chat the moment they do.</p>
+        <button onClick={() => router.push('/matches')} className="btn-flame px-8 py-3 rounded-full font-semibold">Back to matches</button>
       </div>
     </main>
   )
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/matches')} className="text-gray-400 hover:text-white">← Back</button>
-          <h1 className="text-2xl font-bold">Icebreaker</h1>
-        </div>
-        <div className="bg-gray-900 rounded-2xl p-6 space-y-2">
-          <p className="text-gray-400 text-sm">Pick one to unlock your chat:</p>
-          <p className="text-xl font-semibold">{match?.icebreaker_prompt}</p>
+    <main className="min-h-dvh bg-ink text-white p-6">
+      <div className="w-full max-w-md mx-auto space-y-6">
+        <button onClick={() => router.push('/matches')} className="text-mute hover:text-white">← Back</button>
+        <div className="space-y-2">
+          <p className="text-mute text-sm">Pick one. Chat opens when you both have.</p>
+          <h1 className="text-3xl font-bold leading-tight">{match?.icebreaker_prompt}</h1>
         </div>
         <div className="space-y-3">
           {optionsFor(match?.icebreaker_prompt).map(o => (
             <button key={o} onClick={() => setChoice(o)}
-              className={`w-full text-left px-4 py-3 rounded-xl border transition ${choice === o ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+              className={`w-full text-left px-5 py-4 rounded-2xl border text-lg transition ${choice === o ? 'btn-flame border-transparent' : 'bg-panel border-line hover:border-white/30'}`}>
               {o}
             </button>
           ))}
         </div>
-        {error && <p className="text-red-500">{error}</p>}
-        <button disabled={!choice || saving} onClick={handleSubmit}
-          className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
-          {saving ? 'Saving...' : 'Submit'}
+        {error && <p className="text-flame">{error}</p>}
+        <button disabled={!choice || saving} onClick={handleSubmit} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">
+          {saving ? 'Saving...' : 'Lock in my answer'}
         </button>
       </div>
     </main>

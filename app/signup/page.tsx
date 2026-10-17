@@ -108,7 +108,7 @@ export default function SignUp() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {step !== 3 && (
           <button onClick={() => {
@@ -117,23 +117,23 @@ export default function SignUp() {
             else if (step === 2 && codeSent) { setCodeSent(false); setCode('') }
             else if (step === 2) setStep(1)
             else setStep(step - 1 === 3 ? 3 : step - 1)
-          }} className="text-gray-400 hover:text-white mb-6">← Back</button>
+          }} className="text-mute hover:text-white mb-6">← Back</button>
         )}
 
         {step === 1 && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Confirm Your Age</h1>
-            <p className="text-gray-400">You must be 18 or older to join Conexxa.</p>
+            <p className="text-mute">You must be 18 or older to join Conexxa.</p>
             <input type="date" value={form.birthdate}
               onChange={e => update('birthdate', e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white"
             />
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             <button onClick={() => {
               if (!form.birthdate) { setError('Please enter your birthdate.'); return }
               if (!validateAge()) { setError('Sorry, you must be 18 or older to use Conexxa.'); return }
               setError(''); setStep(hasSession ? 3 : 2)
-            }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+            }} className="w-full btn-flame py-3 rounded-full font-semibold transition">
               Continue
             </button>
           </div>
@@ -142,21 +142,21 @@ export default function SignUp() {
         {step === 2 && !codeSent && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Verify Your Contact</h1>
-            <p className="text-gray-400">Only .edu emails are accepted. We'll email you a 6-digit code.</p>
+            <p className="text-mute">Only .edu emails are accepted. We'll email you a 6-digit code.</p>
             <input type="email" placeholder="your@university.edu" value={form.email}
               onChange={e => update('email', e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white"
             />
             <input type="password" placeholder="Create a password" value={form.password}
               onChange={e => update('password', e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white"
             />
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             <button disabled={loading} onClick={() => {
               if (!validateEdu()) { setError('Please use a .edu email address.'); return }
               if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
               setError(''); handleSendCode()
-            }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+            }} className="w-full btn-flame py-3 rounded-full font-semibold transition">
               {loading ? 'Sending...' : 'Send Code'}
             </button>
           </div>
@@ -165,20 +165,20 @@ export default function SignUp() {
         {step === 2 && codeSent && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Enter Your Code</h1>
-            <p className="text-gray-400">We sent a 6-digit code to {form.email}. Check spam if you don't see it.</p>
+            <p className="text-mute">We sent a 6-digit code to {form.email}. Check spam if you don't see it.</p>
             <input type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={code}
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-center text-2xl tracking-widest"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white text-center text-2xl tracking-widest"
             />
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             {error.includes('already exists') && (
-              <Link href="/login" className="block text-center text-rose-400 hover:text-rose-300">Go to Log In</Link>
+              <Link href="/login" className="block text-center text-ember hover:text-white">Go to Log In</Link>
             )}
             <button disabled={loading || code.length !== 6} onClick={handleVerify}
-              className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+              className="w-full btn-flame py-3 rounded-full font-semibold transition">
               {loading ? 'Verifying...' : 'Verify'}
             </button>
-            <button onClick={handleSendCode} className="w-full text-gray-500 hover:text-white transition">Resend code</button>
+            <button onClick={handleSendCode} className="w-full text-mute hover:text-white transition">Resend code</button>
           </div>
         )}
 
@@ -187,32 +187,32 @@ export default function SignUp() {
             <h1 className="text-3xl font-bold">Basic Details</h1>
             <input type="text" placeholder="What should we call you?" value={form.name}
               onChange={e => update('name', e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white"
             />
             <div className="grid grid-cols-2 gap-3">
               {['Male', 'Female', 'Non-Binary', 'Prefer Not to Say'].map(g => (
                 <button key={g} onClick={() => update('gender', g)}
-                  className={`py-3 rounded-xl border transition ${form.gender === g ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+                  className={`py-3 rounded-xl border transition ${form.gender === g ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>
                   {g}
                 </button>
               ))}
             </div>
-            <p className="text-gray-400 text-sm">Show me</p>
+            <p className="text-mute text-sm">Show me</p>
             <div className="grid grid-cols-3 gap-3">
               {[['Male', 'Men'], ['Female', 'Women'], ['everyone', 'Everyone']].map(([v, l]) => (
                 <button key={v} onClick={() => update('interested_in', v)}
-                  className={`py-3 rounded-xl border transition ${form.interested_in === v ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+                  className={`py-3 rounded-xl border transition ${form.interested_in === v ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>
                   {l}
                 </button>
               ))}
             </div>
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             <button onClick={() => {
               if (!form.name) { setError('Please enter your name.'); return }
               if (!form.gender) { setError('Please select your gender.'); return }
               if (!form.interested_in) { setError('Please choose who you want to see.'); return }
               setError(''); setStep(4)
-            }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+            }} className="w-full btn-flame py-3 rounded-full font-semibold transition">
               Continue
             </button>
           </div>
@@ -227,16 +227,16 @@ export default function SignUp() {
                 { value: 'serious', label: "I'm looking for a serious relationship." },
               ].map(opt => (
                 <button key={opt.value} onClick={() => update('intent', opt.value)}
-                  className={`w-full py-4 rounded-xl border text-left px-4 transition ${form.intent === opt.value ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+                  className={`w-full py-4 rounded-xl border text-left px-4 transition ${form.intent === opt.value ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>
                   {opt.label}
                 </button>
               ))}
             </div>
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             <button onClick={() => {
               if (!form.intent) { setError('Please select an option.'); return }
               setError(''); setStep(5)
-            }} className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+            }} className="w-full btn-flame py-3 rounded-full font-semibold transition">
               Continue
             </button>
           </div>
@@ -245,19 +245,19 @@ export default function SignUp() {
         {step === 5 && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Make Your Profile Shine</h1>
-            <p className="text-gray-400">Optional — but it helps!</p>
+            <p className="text-mute">Optional — but it helps!</p>
             <textarea placeholder="Tell us about yourself in one sentence..." value={form.bio}
               onChange={e => update('bio', e.target.value)} maxLength={200}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white h-32 resize-none"
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white h-32 resize-none"
             />
             <div className="space-y-2">
-              <p className="text-gray-400 text-sm">Profile photo (optional)</p>
+              <p className="text-mute text-sm">Profile photo (optional)</p>
               <input type="file" accept="image/*"
                 onChange={e => {
                   const file = e.target.files?.[0]
                   if (file) update('photo', file as any)
                 }}
-                className="w-full text-gray-400 text-sm"
+                className="w-full text-mute text-sm"
               />
               {(form as any).photo && (
                 <img src={URL.createObjectURL((form as any).photo)} 
@@ -265,10 +265,10 @@ export default function SignUp() {
               )}
             </div>
             <button onClick={() => setStep(6)}
-              className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+              className="w-full btn-flame py-3 rounded-full font-semibold transition">
               Continue
             </button>
-            <button onClick={() => setStep(6)} className="w-full text-gray-500 hover:text-white transition">
+            <button onClick={() => setStep(6)} className="w-full text-mute hover:text-white transition">
               Skip
             </button>
           </div>
@@ -277,18 +277,18 @@ export default function SignUp() {
         {step === 6 && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">One Last Step</h1>
-            <p className="text-gray-400">Please agree to our Terms of Use and Privacy Policy.</p>
+            <p className="text-mute">Please agree to our Terms of Use and Privacy Policy.</p>
             <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" className="w-5 h-5 accent-rose-500"
   onChange={e => update('agreed', e.target.checked as any)}
 />
               <span>I agree to the <Link href="/terms" target="_blank" className="underline">Terms of Use</Link> and <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.</span>
             </label>
-            {error && <p className="text-red-500">{error}</p>}
+            {error && <p className="text-flame">{error}</p>}
             <button onClick={() => {
   if (!(form as any).agreed) { setError('Please agree to the Terms of Use.'); return }
   saveProfile()
-}} className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+}} className="w-full btn-flame py-3 rounded-full font-semibold transition">
   {loading ? 'Saving...' : 'Create Account'}
 </button>
           </div>

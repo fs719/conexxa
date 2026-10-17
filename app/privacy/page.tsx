@@ -2,11 +2,11 @@ import Link from 'next/link'
 
 export default function Privacy() {
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-2xl mx-auto space-y-4 text-gray-300">
-        <Link href="/" className="text-gray-500 hover:text-white">← Back</Link>
+    <main className="min-h-dvh bg-ink text-white p-6">
+      <div className="max-w-2xl mx-auto space-y-4 text-white/80">
+        <Link href="/" className="text-mute hover:text-white">← Back</Link>
         <h1 className="text-3xl font-bold text-white">Privacy Policy</h1>
-        <p className="text-sm text-gray-500">Last updated October 2026</p>
+        <p className="text-sm text-mute">Last updated October 2026</p>
         <h2 className="text-xl font-semibold text-white pt-2">What we collect</h2>
         <p>Your .edu email, birthdate (used to check you are 18+, and stored as your age), name, gender, who you want to see, what you are looking for, bio, and optional photo. We also store your swipes, matches, icebreaker answers, messages, and any reports or blocks.</p>
         <h2 className="text-xl font-semibold text-white pt-2">Who sees it</h2>

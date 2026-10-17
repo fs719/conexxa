@@ -2,11 +2,11 @@ import Link from 'next/link'
 
 export default function Terms() {
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-2xl mx-auto space-y-4 text-gray-300">
-        <Link href="/" className="text-gray-500 hover:text-white">← Back</Link>
+    <main className="min-h-dvh bg-ink text-white p-6">
+      <div className="max-w-2xl mx-auto space-y-4 text-white/80">
+        <Link href="/" className="text-mute hover:text-white">← Back</Link>
         <h1 className="text-3xl font-bold text-white">Terms of Use</h1>
-        <p className="text-sm text-gray-500">Last updated October 2026</p>
+        <p className="text-sm text-mute">Last updated October 2026</p>
         <h2 className="text-xl font-semibold text-white pt-2">Who can use Conexxa</h2>
         <p>You must be at least 18 and have a working .edu email address. You must give true information about yourself and use only your own account.</p>
         <h2 className="text-xl font-semibold text-white pt-2">How to behave</h2>

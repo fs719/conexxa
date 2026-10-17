@@ -1,136 +1,121 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
+
+type Msg = { id: string; sender_id: string; content: string; created_at: string; pending?: boolean; failed?: boolean }
 
 export default function Chat() {
   const router = useRouter()
   const { id } = useParams()
-  const [messages, setMessages] = useState<any[]>([])
-  const [newMessage, setNewMessage] = useState('')
-  const [userId, setUserId] = useState<string>('')
+  const [messages, setMessages] = useState<Msg[]>([])
+  const [text, setText] = useState('')
+  const [userId, setUserId] = useState('')
   const [match, setMatch] = useState<any>(null)
-  const [otherProfile, setOtherProfile] = useState<any>(null)
+  const [other, setOther] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const token = useRef('')
+  const bottom = useRef<HTMLDivElement>(null)
+  const pendingRef = useRef<Msg[]>([])
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      setUserId(user.id)
+  const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
 
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (!matchData || !matchData.chat_unlocked) { router.push('/matches'); return }
-      setMatch(matchData)
-
-      const otherId = matchData.user1_id === user.id ? matchData.user2_id : matchData.user1_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('name, photo_url')
-        .eq('id', otherId)
-        .single()
-
-      setOtherProfile(profile)
-
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('match_id', id)
-        .order('created_at', { ascending: true })
-
-      setMessages(msgs || [])
-      setLoading(false)
-    }
-    init()
-
-    const channel = supabase
-      .channel(`chat:${id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `match_id=eq.${id}`,
-      }, payload => {
-        setMessages(prev => [...prev, payload.new])
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const sendMessage = async () => {
-    if (!newMessage.trim()) return
-    await supabase.from('messages').insert({
-      match_id: id,
-      sender_id: userId,
-      content: newMessage.trim(),
-    })
-    setNewMessage('')
+  const load = async () => {
+    const r = await fetch(`/api/messages?matchId=${id}`, { headers: headers() })
+    if (!r.ok) return
+    const { messages: server } = await r.json()
+    setMessages([...server, ...pendingRef.current])
   }
 
-  if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p>Loading chat...</p>
-    </main>
-  )
+  useEffect(() => {
+    let timer: any
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      token.current = session.access_token
+      const uid = session.user.id
+      setUserId(uid)
+      const { data: m } = await supabase.from('matches').select('*').eq('id', id).single()
+      if (!m || !m.chat_unlocked) { router.push('/matches'); return }
+      setMatch(m)
+      const otherId = m.user1_id === uid ? m.user2_id : m.user1_id
+      const { data: p } = await supabase.from('profiles').select('name, photo_url').eq('id', otherId).single()
+      setOther(p)
+      await load()
+      setLoading(false)
+      timer = setInterval(load, 2500)
+    })()
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
+
+  const send = async () => {
+    const content = text.trim()
+    if (!content) return
+    setText('')
+    const temp: Msg = { id: `tmp-${Date.now()}`, sender_id: userId, content, created_at: new Date().toISOString(), pending: true }
+    pendingRef.current = [...pendingRef.current, temp]
+    setMessages(prev => [...prev, temp])
+    const r = await fetch('/api/messages', { method: 'POST', headers: headers(), body: JSON.stringify({ matchId: id, content }) })
+    pendingRef.current = pendingRef.current.filter(m => m.id !== temp.id)
+    if (r.ok) { await load() }
+    else {
+      const failed = { ...temp, pending: false, failed: true }
+      pendingRef.current = [...pendingRef.current, failed]
+      setMessages(prev => prev.map(m => m.id === temp.id ? failed : m))
+    }
+  }
+
+  const retry = (m: Msg) => { pendingRef.current = pendingRef.current.filter(x => x.id !== m.id); setMessages(prev => prev.filter(x => x.id !== m.id)); setText(m.content) }
+
+  if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Opening chat...</main>
+
+  const mine = (m: Msg) => m.sender_id === userId
+  const myAnswer = match.user1_id === userId ? match.user1_answer : match.user2_answer
+  const theirAnswer = match.user1_id === userId ? match.user2_answer : match.user1_answer
+  const time = (s: string) => parseTs(s).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col">
-      <div className="flex items-center gap-3 p-4 border-b border-gray-800">
-        <button onClick={() => router.push('/matches')} className="text-gray-400 hover:text-white">←</button>
-        <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center">
-          {otherProfile?.photo_url ? (
-            <img src={otherProfile.photo_url} className="w-full h-full object-cover rounded-full" />
-          ) : '👤'}
+    <main className="h-dvh bg-ink text-white flex flex-col max-w-md mx-auto w-full">
+      <header className="flex items-center gap-3 px-4 py-3 border-b border-line">
+        <button onClick={() => router.push('/matches')} aria-label="Back" className="text-mute hover:text-white text-xl pr-1">←</button>
+        <div className="w-10 h-10 rounded-full overflow-hidden bg-raised flex items-center justify-center font-bold">
+          {other?.photo_url ? <img src={other.photo_url} alt="" className="w-full h-full object-cover" /> : (other?.name || '?')[0].toUpperCase()}
         </div>
-        <h1 className="font-bold">{otherProfile?.name || 'Unknown'}</h1>
-      </div>
+        <h1 className="font-bold text-lg flex-1 truncate">{other?.name || 'Match'}</h1>
+        <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
+      </header>
 
-      {match?.user1_answer && match?.user2_answer && (
-        <div className="bg-gray-900 p-3 text-sm text-gray-400 border-b border-gray-800">
-          <p className="font-semibold text-white mb-1">Icebreaker: {match.icebreaker_prompt}</p>
-          <p>You: {match.user1_id === userId ? match.user1_answer : match.user2_answer}</p>
-          <p>Them: {match.user1_id === userId ? match.user2_answer : match.user1_answer}</p>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 && (
-          <p className="text-center text-gray-500 mt-10">No messages yet. Say hello!</p>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+        {myAnswer && theirAnswer && (
+          <div className="rounded-2xl bg-panel border border-line p-4 mb-4 text-sm">
+            <p className="text-mute mb-2">{match.icebreaker_prompt}</p>
+            <p><span className="text-mute">You:</span> {myAnswer}</p>
+            <p><span className="text-mute">{other?.name}:</span> {theirAnswer}</p>
+          </div>
         )}
-        {messages.map(msg => (
-          <div key={msg.id} className={`flex ${msg.sender_id === userId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xs px-4 py-2 rounded-2xl ${msg.sender_id === userId ? 'bg-rose-500' : 'bg-gray-800'}`}>
-              {msg.content}
+        {messages.length === 0 && <p className="text-center text-mute pt-10">Say hi to {other?.name}. Your answers are a good place to start.</p>}
+        {messages.map(m => (
+          <div key={m.id} className={`flex ${mine(m) ? 'justify-end' : 'justify-start'}`}>
+            <div className="max-w-[78%]">
+              <div className={`px-4 py-2.5 rounded-2xl leading-snug break-words ${mine(m) ? 'btn-flame rounded-br-md' : 'bg-panel border border-line rounded-bl-md'} ${m.pending ? 'opacity-60' : ''}`}>{m.content}</div>
+              <p className={`text-[11px] mt-1 px-1 text-mute ${mine(m) ? 'text-right' : ''}`}>
+                {m.failed ? <button onClick={() => retry(m)} className="text-flame">Not sent. Tap to edit and resend</button> : m.pending ? 'Sending...' : time(m.created_at)}
+              </p>
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
+        <div ref={bottom} />
       </div>
 
-      <div className="p-4 border-t border-gray-800 flex gap-3">
-        <input
-          value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          placeholder="Type a message..."
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-full px-4 py-2 text-white"
-        />
-        <button onClick={sendMessage}
-          className="bg-rose-500 hover:bg-rose-600 px-6 py-2 rounded-full font-semibold transition">
-          Send
-        </button>
-      </div>
+      <form onSubmit={e => { e.preventDefault(); send() }} className="flex gap-2 px-4 py-3 border-t border-line" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
+        <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={1000} autoComplete="off"
+          className="flex-1 bg-panel border border-line rounded-full px-4 py-3 text-white placeholder:text-mute" />
+        <button type="submit" disabled={!text.trim()} className="btn-flame px-6 rounded-full font-semibold">Send</button>
+      </form>
     </main>
   )
 }

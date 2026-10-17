@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-ink: #120e17;
+  --color-panel: #1d1724;
+  --color-raised: #281f31;
+  --color-line: #2f2639;
+  --color-mute: #a094ab;
+  --color-flame: #ff4d6d;
+  --color-ember: #ff8a5b;
+  --color-ok: #5be3a6;
   --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-bricolage);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root { color-scheme: dark; }
+
+html, body { background: #120e17; color: #f6f1f7; }
+body { font-family: var(--font-geist-sans), system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+h1, h2 { font-family: var(--font-bricolage), var(--font-geist-sans), sans-serif; letter-spacing: -0.02em; }
+
+/* The one loud color in the app: reserved for the main action and the match moment. */
+.btn-flame {
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff8a5b 100%);
+  color: #fff;
+  transition: transform .12s ease, filter .12s ease;
+}
+.btn-flame:hover { filter: brightness(1.06); }
+.btn-flame:active { transform: scale(0.98); }
+.btn-flame:disabled { opacity: .5; filter: none; transform: none; }
+
+input, textarea { font-size: 16px; } /* stops iOS zoom on focus */
+input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid #ff8a5b; outline-offset: 2px;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
+.pop { animation: pop .45s cubic-bezier(.2,.9,.3,1.2) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pop { animation: none; }
+  .btn-flame { transition: none; }
 }

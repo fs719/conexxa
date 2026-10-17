@@ -1,56 +1,35 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
 
-const ICEBREAKERS_CASUAL = [
-  "What's the weirdest thing you've ever Googled?",
-  "Pineapple on pizza: Yes or no?",
-  "What's your go-to karaoke song?",
-  "Would you rather fight 100 duck-sized horses or one horse-sized duck?",
-  "What's your guilty pleasure TV show or movie?",
-]
-
-const ICEBREAKERS_SERIOUS = [
-  "What's the one thing you're most passionate about in life?",
-  "What's a lesson you learned the hard way?",
-  "What's your dream for the next five years?",
-  "What's the best piece of advice you've ever received?",
-  "Describe your perfect day in a sentence.",
-]
+type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string }
 
 export default function Swipe() {
   const router = useRouter()
-  const [profiles, setProfiles] = useState<any[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
   const [current, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string>('')
-  const [userIntent, setUserIntent] = useState<string>('')
+  const [me, setMe] = useState<any>(null)
+  const [match, setMatch] = useState<{ id: string; other: Profile } | null>(null)
+  const [dx, setDx] = useState(0)
+  const [fly, setFly] = useState<0 | 1 | -1>(0)
+  const start = useRef<number | null>(null)
+  const busy = useRef(false)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      setUserId(user.id)
 
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('intent, gender, interested_in')
-        .eq('id', user.id)
-        .single()
+      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in').eq('id', user.id).single()
+      if (!myProfile?.name) { router.push('/signup'); return }
+      setMe(myProfile)
 
-      if (myProfile) setUserIntent(myProfile.intent)
-
-        const { data: swipedData } = await supabase
-        .from('swipes')
-        .select('swiped_id')
-        .eq('swiper_id', user.id)
-
-      const { data: blockedData } = await supabase
-        .from('blocks')
-        .select('blocked_id')
-        .eq('blocker_id', user.id)
-
+      const { data: swipedData } = await supabase.from('swipes').select('swiped_id').eq('swiper_id', user.id)
+      const { data: blockedData } = await supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id)
       let blockedByIds: string[] = []
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -58,118 +37,143 @@ export default function Swipe() {
         blockedByIds = (await r.json()).ids || []
       } catch {}
 
-      const swipedIds = swipedData?.map((s: any) => s.swiped_id) || []
-      const blockedIds = blockedData?.map((b: any) => b.blocked_id) || []
-      const excludedIds = [...new Set([...swipedIds, ...blockedIds, ...blockedByIds])]
+      const excluded = [...new Set([
+        ...(swipedData?.map((s: any) => s.swiped_id) || []),
+        ...(blockedData?.map((b: any) => b.blocked_id) || []),
+        ...blockedByIds,
+      ])]
 
-      let query = supabase
-        .from('profiles')
-        .select('*')
-        .neq('id', user.id)
+      let query = supabase.from('profiles').select('*').neq('id', user.id)
+      if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
+      const { data } = await query
 
-      if (excludedIds.length > 0) {
-        query = query.not('id', 'in', `(${excludedIds.join(',')})`)
-      }
-
-      const { data: profilesData } = await query
-
-      const wants = (interest: string | null, gender: string | null) =>
+      const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
         !interest || interest === 'everyone' || interest === gender
-      const filtered = (profilesData || []).filter((p: any) =>
-        p.name && p.intent &&
-        wants(myProfile?.interested_in, p.gender) &&
-        wants(p.interested_in, myProfile?.gender))
-
-      setProfiles(filtered)
+      const list = (data || []).filter((p: any) =>
+        p.name && p.intent && wants(myProfile.interested_in, p.gender) && wants(p.interested_in, myProfile.gender))
+      setProfiles(list.sort(() => Math.random() - 0.5))
       setLoading(false)
     }
     init()
   }, [])
 
-  const handleSwipe = async (direction: 'like' | 'skip') => {
+  const commit = async (direction: 'like' | 'skip') => {
     const profile = profiles[current]
-    if (!profile) return
+    if (!profile || busy.current) return
+    busy.current = true
+    setFly(direction === 'like' ? 1 : -1)
     const { data: { session } } = await supabase.auth.getSession()
-    try {
-      const res = await fetch('/api/swipe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ swipedId: profile.id, direction }),
-      })
-      const data = await res.json()
-      if (data.matched) { router.push('/matches'); return }
-    } catch {}
-    setCurrent(prev => prev + 1)
+    const req = fetch('/api/swipe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ swipedId: profile.id, direction }),
+    }).then(r => r.json()).catch(() => ({}))
+    await new Promise(r => setTimeout(r, 220))
+    const data = await req
+    setFly(0); setDx(0)
+    busy.current = false
+    if (data.matched) { setMatch({ id: data.id, other: profile }); return }
+    setCurrent(c => c + 1)
   }
 
-  if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p>Loading profiles...</p>
-    </main>
-  )
+  const onDown = (e: React.PointerEvent) => { start.current = e.clientX; (e.target as Element).setPointerCapture?.(e.pointerId) }
+  const onMove = (e: React.PointerEvent) => { if (start.current !== null) setDx(e.clientX - start.current) }
+  const onUp = () => {
+    if (start.current === null) return
+    start.current = null
+    if (dx > 110) commit('like')
+    else if (dx < -110) commit('skip')
+    else setDx(0)
+  }
 
-  if (current >= profiles.length) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        <div className="text-6xl">🎉</div>
-        <h1 className="text-2xl font-bold">You've seen everyone!</h1>
-        <p className="text-gray-400">Check back later for new profiles.</p>
-        <button onClick={() => router.push('/dashboard')}
-          className="bg-rose-500 hover:bg-rose-600 px-8 py-3 rounded-full font-semibold transition">
-          Back to Dashboard
-        </button>
+  if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Finding people near you...</main>
+
+  if (match) return (
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-8">
+        <h1 className="pop text-5xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>It's a match</h1>
+        <div className="flex justify-center items-center">
+          {[me, match.other].map((p: any, i) => (
+            <div key={i} className={`w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}>
+              {p?.photo_url ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" /> : (p?.name || '?')[0].toUpperCase()}
+            </div>
+          ))}
+        </div>
+        <p className="text-mute">You and {match.other.name} liked each other. Answer one question together to open the chat. You have 24 hours.</p>
+        <div className="space-y-3">
+          <button onClick={() => router.push(`/icebreaker/${match.id}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">Answer the question</button>
+          <button onClick={() => { setMatch(null); setCurrent(c => c + 1) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>
+        </div>
       </div>
     </main>
   )
 
   const profile = profiles[current]
 
-  return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex justify-between items-center">
-          <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-white">← Back</button>
-          <h1 className="text-xl font-bold">Conexxa</h1>
-          <div className="text-gray-400">{current + 1}/{profiles.length}</div>
-        </div>
-
-        <div className="bg-gray-900 rounded-3xl p-6 space-y-4">
-          <div className="w-full h-48 bg-gray-800 rounded-2xl flex items-center justify-center text-6xl">
-            {profile.photo_url ? (
-              <img src={profile.photo_url} alt={profile.name} className="w-full h-full object-cover rounded-2xl" />
-            ) : '👤'}
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold">{profile.name || 'Anonymous'}</h2>
-            <p className="text-gray-400">{profile.intent === 'serious' ? '💍 Serious' : '💫 Casual'}</p>
-          </div>
-          {profile.bio && <p className="text-gray-300">{profile.bio}</p>}
-          {profile.interests?.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {profile.interests.map((i: string) => (
-                <span key={i} className="bg-gray-800 px-3 py-1 rounded-full text-sm">#{i}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end mb-1">
-  <button onClick={() => router.push(`/report?userId=${profile.id}`)}
-    className="text-gray-600 hover:text-gray-400 text-sm transition">
-    Report
-  </button>
-</div>
-<div className="flex gap-4">
-          <button onClick={() => handleSwipe('skip')}
-            className="flex-1 bg-gray-900 hover:bg-gray-800 py-4 rounded-2xl text-2xl transition">
-            ✕
-          </button>
-          <button onClick={() => handleSwipe('like')}
-            className="flex-1 bg-rose-500 hover:bg-rose-600 py-4 rounded-2xl text-2xl transition">
-            ♥
-          </button>
-        </div>
+  if (!profile) return (
+    <main className="min-h-dvh bg-ink text-white pb-24">
+      <div className="max-w-md mx-auto px-6 pt-32 text-center space-y-5">
+        <h1 className="text-3xl font-bold">You're all caught up</h1>
+        <p className="text-mute">New people join every day. Invite a friend and you'll both see more profiles.</p>
+        <InviteButton />
       </div>
+      <BottomNav />
     </main>
   )
+
+  const rot = fly ? fly * 18 : dx / 14
+  const x = fly ? fly * 520 : dx
+
+  return (
+    <main className="min-h-dvh bg-ink text-white pb-24 overflow-hidden">
+      <div className="max-w-md mx-auto px-4 pt-4">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h1 className="text-2xl font-bold">Conexxa</h1>
+          <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
+        </div>
+
+        <div
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+          style={{ transform: `translateX(${x}px) rotate(${rot}deg)`, transition: start.current === null ? 'transform .22s ease' : 'none', touchAction: 'pan-y' }}
+          className="relative rounded-[28px] overflow-hidden bg-panel select-none cursor-grab active:cursor-grabbing"
+        >
+          <div className="aspect-[3/4] w-full bg-raised flex items-center justify-center">
+            {profile.photo_url
+              ? <img src={profile.photo_url} alt={profile.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+              : <span className="text-8xl font-display text-mute">{profile.name[0].toUpperCase()}</span>}
+          </div>
+          <div className="absolute inset-x-0 bottom-0 p-5 pt-24 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-3xl font-bold">{profile.name}</h2>
+              {profile.age ? <span className="text-xl text-white/80">{profile.age}</span> : null}
+            </div>
+            <span className="inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">
+              {profile.intent === 'serious' ? 'Looking for something serious' : 'Keeping it casual'}
+            </span>
+            {profile.bio && <p className="mt-3 text-white/90 leading-snug">{profile.bio}</p>}
+          </div>
+          <div style={{ opacity: Math.min(Math.max(dx, 0) / 100, 1) }} className="absolute top-6 left-6 border-4 border-ok text-ok rounded-xl px-3 py-1 text-2xl font-extrabold -rotate-12">LIKE</div>
+          <div style={{ opacity: Math.min(Math.max(-dx, 0) / 100, 1) }} className="absolute top-6 right-6 border-4 border-white/70 text-white/70 rounded-xl px-3 py-1 text-2xl font-extrabold rotate-12">PASS</div>
+        </div>
+
+        <div className="flex justify-center gap-6 mt-5">
+          <button aria-label="Pass" onClick={() => commit('skip')} className="w-16 h-16 rounded-full bg-panel border border-line text-2xl text-mute hover:text-white hover:border-white/40 transition active:scale-95">✕</button>
+          <button aria-label="Like" onClick={() => commit('like')} className="w-20 h-16 rounded-full btn-flame text-2xl shadow-lg shadow-flame/20">♥</button>
+        </div>
+      </div>
+      <BottomNav />
+    </main>
+  )
+}
+
+function InviteButton() {
+  const [copied, setCopied] = useState(false)
+  const go = async () => {
+    const url = 'https://conexxa.net', text = 'Join me on Conexxa, the dating app for college students.'
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return }
+      await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+  return <button onClick={go} className="btn-flame px-8 py-3 rounded-full font-semibold">{copied ? 'Link copied' : 'Invite a friend'}</button>
 }

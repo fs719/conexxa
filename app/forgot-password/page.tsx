@@ -38,39 +38,39 @@ export default function ForgotPassword() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <h1 className="text-3xl font-bold">Forgot Password</h1>
         {!codeSent ? (
           <>
-            <p className="text-gray-400">Enter your .edu email and we'll send a 6-digit code.</p>
+            <p className="text-mute">Enter your .edu email and we'll send a 6-digit code.</p>
             <input type="email" placeholder="your@university.edu" value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white" />
-            {error && <p className="text-red-500">{error}</p>}
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white" />
+            {error && <p className="text-flame">{error}</p>}
             <button disabled={loading} onClick={sendCode}
-              className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+              className="w-full btn-flame py-3 rounded-full font-semibold transition">
               {loading ? 'Sending...' : 'Send Code'}
             </button>
           </>
         ) : (
           <>
-            <p className="text-gray-400">If {email} has an account, a code is on its way. Check spam too.</p>
+            <p className="text-mute">If {email} has an account, a code is on its way. Check spam too.</p>
             <input type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={code}
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-center text-2xl tracking-widest" />
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white text-center text-2xl tracking-widest" />
             <input type="password" placeholder="New password" value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white" />
-            {error && <p className="text-red-500">{error}</p>}
+              className="w-full bg-panel border border-line rounded-xl p-3 text-white" />
+            {error && <p className="text-flame">{error}</p>}
             <button disabled={loading || code.length !== 6} onClick={reset}
-              className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+              className="w-full btn-flame py-3 rounded-full font-semibold transition">
               {loading ? 'Updating...' : 'Update Password'}
             </button>
-            <button onClick={sendCode} className="w-full text-gray-500 hover:text-white transition">Resend code</button>
+            <button onClick={sendCode} className="w-full text-mute hover:text-white transition">Resend code</button>
           </>
         )}
-        <button onClick={() => router.push('/login')} className="w-full text-gray-500 hover:text-white transition">
+        <button onClick={() => router.push('/login')} className="w-full text-mute hover:text-white transition">
           Back to Login
         </button>
       </div>

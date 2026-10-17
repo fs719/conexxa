@@ -40,13 +40,13 @@ function ReportForm() {
   }
 
   if (submitted) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="text-center space-y-4">
         <div className="text-6xl">✅</div>
         <h1 className="text-2xl font-bold">Report Submitted</h1>
-        <p className="text-gray-400">Thank you. We'll review this report shortly.</p>
+        <p className="text-mute">Thank you. We'll review this report shortly.</p>
         <button onClick={() => router.push('/swipe')}
-          className="bg-rose-500 hover:bg-rose-600 px-8 py-3 rounded-full font-semibold transition">
+          className="btn-flame px-8 py-3 rounded-full font-semibold transition">
           Back to Swiping
         </button>
       </div>
@@ -54,29 +54,29 @@ function ReportForm() {
   )
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-white">← Back</button>
+          <button onClick={() => router.back()} className="text-mute hover:text-white">← Back</button>
           <h1 className="text-2xl font-bold">Report User</h1>
         </div>
 
         <div className="space-y-3">
           {['Inappropriate behavior', 'Fake profile', 'Harassment', 'Spam', 'Other'].map(r => (
             <button key={r} onClick={() => setReason(r)}
-              className={`w-full py-3 px-4 rounded-xl border text-left transition ${reason === r ? 'bg-rose-500 border-rose-500' : 'border-gray-700 hover:border-rose-500'}`}>
+              className={`w-full py-3 px-4 rounded-xl border text-left transition ${reason === r ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>
               {r}
             </button>
           ))}
         </div>
 
         <button onClick={handleReport} disabled={!reason || loading}
-          className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 py-3 rounded-full font-semibold transition">
+          className="w-full btn-flame py-3 rounded-full font-semibold transition">
           {loading ? 'Submitting...' : 'Submit Report'}
         </button>
 
         <button onClick={handleBlock} disabled={loading}
-          className="w-full border border-red-500 text-red-500 hover:bg-red-500 hover:text-white py-3 rounded-full font-semibold transition">
+          className="w-full border border-red-500 text-flame hover:bg-red-500 hover:text-white py-3 rounded-full font-semibold transition">
           Block This User
         </button>
       </div>

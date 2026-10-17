@@ -28,7 +28,7 @@ export default function Verify() {
           Click it to confirm your account then come back to log in.
         </p>
         <button onClick={() => router.push('/login')}
-          className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+          className="w-full btn-flame py-3 rounded-full font-semibold transition">
           Go to Login
         </button>
       </div>

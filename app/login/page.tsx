@@ -20,29 +20,29 @@ export default function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <h1 className="text-3xl font-bold">Welcome Back</h1>
-        <p className="text-gray-400">Log in to your Conexxa account.</p>
+        <p className="text-mute">Log in to your Conexxa account.</p>
         <input type="email" placeholder="your@university.edu" value={email}
           onChange={e => setEmail(e.target.value)}
-          className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+          className="w-full bg-panel border border-line rounded-xl p-3 text-white"
         />
         <input type="password" placeholder="Password" value={password}
           onChange={e => setPassword(e.target.value)}
-          className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"
+          className="w-full bg-panel border border-line rounded-xl p-3 text-white"
         />
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-flame">{error}</p>}
         <button onClick={handleLogin}
-          className="w-full bg-rose-500 hover:bg-rose-600 py-3 rounded-full font-semibold transition">
+          className="w-full btn-flame py-3 rounded-full font-semibold transition">
           {loading ? 'Logging in...' : 'Log In'}
         </button>
-        <p className="text-center text-gray-400">
+        <p className="text-center text-mute">
           Don't have an account?{' '}
-          <Link href="/signup" className="text-rose-500 hover:underline">Sign Up</Link>
+          <Link href="/signup" className="text-ember hover:underline">Sign Up</Link>
         </p>
-        <p className="text-center text-gray-400">
-          <Link href="/forgot-password" className="text-rose-500 hover:underline">Forgot password?</Link>
+        <p className="text-center text-mute">
+          <Link href="/forgot-password" className="text-ember hover:underline">Forgot password?</Link>
         </p>
       </div>
     </main>
