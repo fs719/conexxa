@@ -1,19 +1,5 @@
 import { admin } from '@/lib/server'
-
-const CASUAL = [
-  "What's the weirdest thing you've ever Googled?",
-  'Pineapple on pizza: Yes or no?',
-  "What's your go-to karaoke song?",
-  'Would you rather fight 100 duck-sized horses or one horse-sized duck?',
-  "What's your guilty pleasure TV show or movie?",
-]
-const SERIOUS = [
-  "What's the one thing you're most passionate about in life?",
-  "What's a lesson you learned the hard way?",
-  "What's your dream for the next five years?",
-  "What's the best piece of advice you've ever received?",
-  'Describe your perfect day in a sentence.',
-]
+import { CASUAL, SERIOUS } from '@/lib/icebreakers'
 
 // Records a swipe and, on a mutual like, creates the match. Runs with the service
 // role so it can see the other person's swipe (row-level security hides it from the client).
@@ -50,7 +36,7 @@ export async function POST(req: Request) {
   const { data: created, error: mErr } = await db.from('matches').insert({
     user1_id: user.id,
     user2_id: swipedId,
-    icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)],
+    icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
     expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
   }).select('id').single()
   if (mErr) return Response.json({ error: mErr.message }, { status: 500 })
@@ -79,7 +65,7 @@ export async function GET(req: Request) {
     if (ex?.length) continue
     const { error } = await db.from('matches').insert({
       user1_id: user.id, user2_id: other,
-      icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)],
+      icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
       expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
     })
     if (!error) created++
