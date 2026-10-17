@@ -6,10 +6,9 @@ import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import { schoolFrom } from '@/lib/school'
 
-type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; edu_email?: string }
+type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; school_domain?: string }
 // Flip to true before launch to make a photo mandatory before swiping.
 const REQUIRE_PHOTO = false
-const domain = (e?: string) => (e || '').split('@')[1]?.toLowerCase() || ''
 const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
   !interest || interest === 'everyone' || interest === gender
 
@@ -36,7 +35,7 @@ export default function Swipe() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, edu_email').eq('id', user.id).single()
+      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, school_domain').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
       if (REQUIRE_PHOTO && !myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
@@ -58,7 +57,7 @@ export default function Swipe() {
         ...blockedByIds,
       ])]
 
-      let query = supabase.from('profiles').select('*').neq('id', user.id)
+      let query = supabase.from('profiles').select('id, name, age, intent, bio, photo_url, gender, interested_in, school_domain').neq('id', user.id)
       if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
       const { data } = await query
 
@@ -69,14 +68,14 @@ export default function Swipe() {
         boost = (await r.json()).ids || []
       } catch {}
       setAdmirers(boost.filter(id => !excluded.includes(id)))
-      const mine = domain(myProfile.edu_email)
+      const mine = (myProfile.school_domain || '')
       const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
       // Your school first, then everyone else. Each group is shuffled.
       const shuffle = (a: any[]) => a.sort(() => Math.random() - 0.5)
       const admirerCards = list.filter((p: any) => boost.includes(p.id))
       const other = list.filter((p: any) => !boost.includes(p.id))
-      const same = shuffle(other.filter((p: any) => mine && domain(p.edu_email) === mine))
-      const rest = shuffle(other.filter((p: any) => !(mine && domain(p.edu_email) === mine)))
+      const same = shuffle(other.filter((p: any) => mine && p.school_domain === mine))
+      const rest = shuffle(other.filter((p: any) => !(mine && p.school_domain === mine)))
       const ordered = [...same, ...rest]
       // Hide admirers among the first 10 cards at random spots so the order never gives them away.
       for (const c of admirerCards) ordered.splice(Math.min(ordered.length, 2 + Math.floor(Math.random() * 8)), 0, c)
@@ -233,7 +232,7 @@ export default function Swipe() {
             <span className="inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">
               {profile.intent === 'serious' ? 'Looking for something serious' : 'Keeping it casual'}
             </span>
-            {schoolFrom(profile.edu_email) && <span className="inline-block mt-1 ml-2 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">✓ {schoolFrom(profile.edu_email)}</span>}
+            {schoolFrom(profile.school_domain) && <span className="inline-block mt-1 ml-2 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">✓ {schoolFrom(profile.school_domain)}</span>}
             {profile.bio && <p className="mt-3 text-white/90 leading-snug">{profile.bio}</p>}
           </div>
           <button onPointerDown={e => e.stopPropagation()} onClick={know}
