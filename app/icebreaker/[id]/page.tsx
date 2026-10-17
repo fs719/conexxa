@@ -31,6 +31,15 @@ export default function Icebreaker() {
     init()
   }, [])
 
+  useEffect(() => {
+    if (!submitted) return
+    const t = setInterval(async () => {
+      const { data: m } = await supabase.from('matches').select('chat_unlocked').eq('id', id).single()
+      if (m?.chat_unlocked) router.push(`/chat/${id}`)
+    }, 4000)
+    return () => clearInterval(t)
+  }, [submitted])
+
   const handleSubmit = async () => {
     if (!choice) return
     setSaving(true); setError('')

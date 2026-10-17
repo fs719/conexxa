@@ -97,7 +97,10 @@ export default function Matches() {
                 ) : match.chat_unlocked ? (
                   <p className="text-green-400 text-sm">Chat unlocked ✓</p>
                 ) : (
-                  <p className="text-yellow-400 text-sm">Answer to unlock chat · {timeLeft(match.expires_at)}</p>
+                  <p className="text-yellow-400 text-sm">
+                    {(match.user1_id === userId ? match.user1_answer : match.user2_answer)
+                      ? 'Waiting for them to answer' : 'Answer to unlock chat'} · {timeLeft(match.expires_at)}
+                  </p>
                 )}
               </div>
             </div>
@@ -106,10 +109,14 @@ export default function Matches() {
               <div className="bg-gray-800 rounded-xl p-3 space-y-2">
                 <p className="text-sm text-gray-400">Icebreaker:</p>
                 <p className="text-white">{match.icebreaker_prompt}</p>
-                <button onClick={() => router.push(`/icebreaker/${match.id}`)}
-                  className="w-full bg-rose-500 hover:bg-rose-600 py-2 rounded-xl text-sm font-semibold transition">
-                  Answer Now
-                </button>
+                {(match.user1_id === userId ? match.user1_answer : match.user2_answer) ? (
+                  <p className="text-sm text-gray-500">You answered. Chat opens when they do.</p>
+                ) : (
+                  <button onClick={() => router.push(`/icebreaker/${match.id}`)}
+                    className="w-full bg-rose-500 hover:bg-rose-600 py-2 rounded-xl text-sm font-semibold transition">
+                    Answer Now
+                  </button>
+                )}
               </div>
             )}
 
