@@ -178,6 +178,8 @@ export default function Swipe() {
             </span>
             {profile.bio && <p className="mt-3 text-white/90 leading-snug">{profile.bio}</p>}
           </div>
+          <button onPointerDown={e => e.stopPropagation()} onClick={know}
+            className="absolute top-4 left-1/2 -translate-x-1/2 text-xs font-medium px-3 py-1.5 rounded-full bg-black/45 backdrop-blur text-white/90 hover:bg-black/65">I know them</button>
           <div style={{ opacity: Math.min(Math.max(dx, 0) / 100, 1) }} className="absolute top-6 left-6 border-4 border-ok text-ok rounded-xl px-3 py-1 text-2xl font-extrabold -rotate-12">LIKE</div>
           <div style={{ opacity: Math.min(Math.max(-dx, 0) / 100, 1) }} className="absolute top-6 right-6 border-4 border-white/70 text-white/70 rounded-xl px-3 py-1 text-2xl font-extrabold rotate-12">PASS</div>
         </div>
@@ -186,7 +188,6 @@ export default function Swipe() {
           <button aria-label="Pass" onClick={() => commit('skip')} className="w-16 h-16 rounded-full bg-panel border border-line text-2xl text-mute hover:text-white hover:border-white/40 transition active:scale-95">✕</button>
           <button aria-label="Like" onClick={() => commit('like')} className="w-20 h-16 rounded-full btn-flame text-2xl shadow-lg shadow-flame/20">♥</button>
         </div>
-        <button onClick={know} className="block mx-auto mt-4 text-sm text-mute hover:text-white">I know them</button>
       </div>
       <BottomNav />
     </main>
