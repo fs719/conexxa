@@ -147,10 +147,14 @@ export default function Swipe() {
   if (!profile) return (
     <main className="min-h-dvh bg-ink text-white pb-24">
       <div className="max-w-md mx-auto px-4 pt-4"><Switch show={show} choose={choose} /></div>
+      {admirers.some(id => !seen.includes(id)) && (
+        <p className="max-w-md mx-auto mt-3 mx-4 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line">Someone here has a crush on you. Switch to Both to find out who.</p>
+      )}
       <div className="max-w-md mx-auto px-6 pt-24 text-center space-y-5">
         <h1 className="text-3xl font-bold">You're all caught up</h1>
         <p className="text-mute">New people join every day. Invite a friend and you'll both see more profiles.</p>
         <InviteButton />
+        <div><Link href="/crush" className="inline-block mt-1 px-8 py-3 rounded-full font-semibold bg-panel border border-line hover:border-white/40">Send a secret crush</Link></div>
       </div>
       <BottomNav />
     </main>
