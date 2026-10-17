@@ -13,8 +13,8 @@ async function who(req: Request) {
 
 // GET: your sent crushes with status.  GET ?inbox=1: people who put your email in (ids only, you never learn which crush is whose).
 export async function GET(req: Request) {
-  const { db, user, why } = await who(req)
-  if (!user) return Response.json({ error: 'Not signed in.', detail: why }, { status: 401 })
+  const { db, user } = await who(req)
+  if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
   const inbox = new URL(req.url).searchParams.get('inbox')
 
   if (inbox) {

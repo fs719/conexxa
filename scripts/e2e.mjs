@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { optionsFor } from '../lib/icebreakers.ts'
 
-const BASE = process.env.BASE_URL || 'https://conexxa.net'
+let BASE = process.env.BASE_URL || 'https://conexxa.net'
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SVC = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -40,6 +40,8 @@ const post = (p, t, body) => api(p, t, { method: 'POST', body: JSON.stringify(bo
 const text = async (p) => { const r = await fetch(BASE + p); return { status: r.status, body: await r.text() } }
 
 async function main() {
+  // The site redirects between conexxa.net and www.conexxa.net, and redirects drop the login header. Use the final address.
+  { const r = await fetch(BASE); BASE = new URL(r.url).origin; console.log('INFO testing against', BASE) }
   // Pages load
   for (const p of ['/', '/signup', '/login', '/terms', '/privacy', '/swipe', '/matches', '/crush', '/forgot-password']) {
     const r = await text(p); ok(`page ${p} loads`, r.status === 200, `status ${r.status}`)
