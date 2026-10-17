@@ -1,4 +1,5 @@
 import { admin, isEdu, normEmail, sendCrushEmail } from '@/lib/server'
+import { setLike, backfillMatches } from '@/lib/matching'
 
 const MAX_CRUSHES = 3
 const DAILY_EMAIL_CAP = 40
@@ -23,9 +24,8 @@ export async function GET(req: Request) {
     const hidden = new Set((bl || []).map(b => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id)))
     const ids = [...new Set((rows || []).map(r => r.sender_id))].filter(id => id !== user.id && !hidden.has(id))
     // A crush is a stored like: make it real so a like back creates the match.
-    for (const id of ids) {
-      await db.from('swipes').upsert({ swiper_id: id, swiped_id: user.id, direction: 'like' }, { onConflict: 'swiper_id,swiped_id' })
-    }
+    for (const id of ids) await setLike(db, id, user.id)
+    await backfillMatches(db, user.id)
     return Response.json({ ids })
   }
 
@@ -74,7 +74,8 @@ export async function POST(req: Request) {
 
   if (target && target.id !== user.id) {
     // They already have an account: store the like now. A like back makes the match.
-    await db.from('swipes').upsert({ swiper_id: user.id, swiped_id: target.id, direction: 'like' }, { onConflict: 'swiper_id,swiped_id' })
+    await setLike(db, user.id, target.id)
+    await backfillMatches(db, user.id)
   }
   return Response.json({ ok: true })
 }

@@ -68,7 +68,7 @@ export default function Swipe() {
         const r = await fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
         boost = (await r.json()).ids || []
       } catch {}
-      setAdmirers(boost)
+      setAdmirers(boost.filter(id => !excluded.includes(id)))
       const mine = domain(myProfile.edu_email)
       const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
       // Your school first, then everyone else. Each group is shuffled.

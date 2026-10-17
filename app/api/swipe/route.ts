@@ -1,5 +1,6 @@
 import { admin } from '@/lib/server'
 import { CASUAL, SERIOUS } from '@/lib/icebreakers'
+import { backfillMatches } from '@/lib/matching'
 
 // Records a swipe and, on a mutual like, creates the match. Runs with the service
 // role so it can see the other person's swipe (row-level security hides it from the client).
@@ -52,28 +53,5 @@ export async function GET(req: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
-
-  const { data: mine } = await db.from('swipes').select('swiped_id').eq('swiper_id', user.id).eq('direction', 'like')
-  const likedIds = (mine || []).map(r => r.swiped_id)
-  if (!likedIds.length) return Response.json({ created: 0 })
-  const { data: back } = await db.from('swipes').select('swiper_id').eq('swiped_id', user.id).eq('direction', 'like').in('swiper_id', likedIds)
-  const { data: bl } = await db.from('blocks').select('blocker_id,blocked_id').or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`)
-  const hidden = new Set((bl || []).map(b => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id)))
-  const mutual = [...new Set((back || []).map(r => r.swiper_id))].filter(id => !hidden.has(id))
-
-  const { data: me } = await db.from('profiles').select('intent').eq('id', user.id).maybeSingle()
-  const pool = me?.intent === 'serious' ? SERIOUS : CASUAL
-  let created = 0
-  for (const other of mutual) {
-    const { data: ex } = await db.from('matches').select('id')
-      .or(`and(user1_id.eq.${user.id},user2_id.eq.${other}),and(user1_id.eq.${other},user2_id.eq.${user.id})`).limit(1)
-    if (ex?.length) continue
-    const { error } = await db.from('matches').insert({
-      user1_id: user.id, user2_id: other,
-      icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
-      expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
-    })
-    if (!error) created++
-  }
-  return Response.json({ created })
+  return Response.json({ created: await backfillMatches(db, user.id) })
 }
