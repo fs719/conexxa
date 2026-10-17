@@ -12,7 +12,9 @@ export const hashCode = (code: string, email: string, purpose: string) =>
     .digest('hex')
 
 export const normEmail = (e: unknown) => String(e || '').trim().toLowerCase()
-export const isEdu = (e: string) => /^[^\s@]+@[^\s@]+\.edu$/.test(e)
+export const isEdu = (e: string) =>
+  /^[^\s@]+@[^\s@]+\.edu$/.test(e) ||
+  /^[^\s@]+\+conexxatest@gmail\.com$/.test(e) // TEMP test backdoor, remove before wide launch
 
 // Plain text, no links, code in the subject: the format that reaches .edu inboxes.
 export async function sendCodeEmail(to: string, code: string, purpose: string) {

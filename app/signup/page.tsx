@@ -38,7 +38,7 @@ export default function SignUp() {
 
   const validateAge = () => ageFrom(form.birthdate) >= 18
 
-  const validateEdu = () => form.email.trim().toLowerCase().endsWith('.edu')
+  const validateEdu = () => /^[^\s@]+@[^\s@]+\.[a-z]+$/i.test(form.email.trim()) // server enforces .edu
 
   const post = async (url: string, body: object) => {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

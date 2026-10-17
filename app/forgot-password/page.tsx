@@ -18,7 +18,7 @@ export default function ForgotPassword() {
   }
 
   const sendCode = async () => {
-    if (!email.trim().toLowerCase().endsWith('.edu')) { setError('Please use your .edu email.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]+$/i.test(email.trim())) { setError('Please use your .edu email.'); return }
     setLoading(true)
     const { ok, data } = await post('/api/auth/send-code', { email, purpose: 'reset' })
     setLoading(false)
