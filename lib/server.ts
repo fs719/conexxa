@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'crypto'
+import { createHash, createHmac } from 'crypto'
 
 export const admin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -46,4 +46,23 @@ export async function findUserId(email: string): Promise<string | null> {
     if (data.users.length < 1000) return null
   }
   return null
+}
+
+// Signed token so an opt-out link can only be made by us.
+export const optoutToken = (email: string) =>
+  createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '').update(`optout|${email}`).digest('hex').slice(0, 32)
+
+export async function sendCrushEmail(to: string) {
+  const link = `https://conexxa.net/api/crush/optout?e=${encodeURIComponent(to)}&t=${optoutToken(to)}`
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Conexxa <verify@conexxa.net>',
+      to: [to],
+      subject: 'Someone at your school has a crush on you',
+      text: `Someone at your school has a crush on you.\n\nThey put your email into Conexxa, a way to meet people on campus. We will never say who it is. If you join and like them back, you both find out. If you don't, nobody ever knows.\n\nTake a look: https://conexxa.net\n\nYou will only get this email once. To make sure you never get one like it again: ${link}`,
+    }),
+  })
+  if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
 }

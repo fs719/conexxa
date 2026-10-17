@@ -15,6 +15,7 @@ export default function Swipe() {
   const [pool, setPool] = useState<Profile[]>([])
   const [seen, setSeen] = useState<string[]>([])
   const [show, setShow] = useState<string>('everyone')
+  const [admirers, setAdmirers] = useState<string[]>([])
   const uid = useRef('')
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<any>(null)
@@ -54,13 +55,22 @@ export default function Swipe() {
       if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
       const { data } = await query
 
+      let boost: string[] = []
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        boost = (await r.json()).ids || []
+      } catch {}
+      setAdmirers(boost)
       const mine = domain(myProfile.edu_email)
       const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
       // Your school first, then everyone else. Each group is shuffled.
       const shuffle = (a: any[]) => a.sort(() => Math.random() - 0.5)
-      const same = shuffle(list.filter((p: any) => mine && domain(p.edu_email) === mine))
-      const rest = shuffle(list.filter((p: any) => !(mine && domain(p.edu_email) === mine)))
-      setPool([...same, ...rest])
+      const first = shuffle(list.filter((p: any) => boost.includes(p.id)))
+      const other = list.filter((p: any) => !boost.includes(p.id))
+      const same = shuffle(other.filter((p: any) => mine && domain(p.edu_email) === mine))
+      const rest = shuffle(other.filter((p: any) => !(mine && domain(p.edu_email) === mine)))
+      setPool([...first, ...same, ...rest])
       setLoading(false)
     }
     init()
@@ -154,8 +164,14 @@ export default function Swipe() {
       <div className="max-w-md mx-auto px-4 pt-4">
         <div className="flex items-center justify-between mb-3 px-1">
           <h1 className="text-2xl font-bold">Conexxa</h1>
-          <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
+          <div className="flex items-center gap-4">
+            <Link href="/crush" className="text-sm font-medium px-3 py-1 rounded-full bg-panel border border-line hover:border-white/40">Secret crush</Link>
+            <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
+          </div>
         </div>
+        {admirers.some(id => !seen.includes(id)) && (
+          <p className="mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line">Someone here has a crush on you. Keep swiping to find out who.</p>
+        )}
         <div className="mb-3"><Switch show={show} choose={choose} /></div>
 
         <div
