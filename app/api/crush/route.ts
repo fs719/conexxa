@@ -2,6 +2,8 @@ import { admin, isEdu, normEmail, sendCrushEmail } from '@/lib/server'
 import { setLike, backfillMatches } from '@/lib/matching'
 
 const MAX_CRUSHES = 3
+const WEEK_MS = 7 * 86400_000
+const recent = (rows: { created_at: string }[] | null) => (rows || []).filter(r => Date.now() - new Date(r.created_at).getTime() < WEEK_MS).length
 const DAILY_EMAIL_CAP = 40
 
 async function who(req: Request) {
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
     }
     out.push({ id: c.id, email: c.target_email, status })
   }
-  return Response.json({ crushes: out, left: Math.max(0, MAX_CRUSHES - out.length) })
+  return Response.json({ crushes: out, left: Math.max(0, MAX_CRUSHES - recent(mine)) })
 }
 
 export async function POST(req: Request) {
@@ -53,8 +55,8 @@ export async function POST(req: Request) {
   if (!isEdu(email)) return Response.json({ error: 'Use their college email (ends in .edu).' }, { status: 400 })
   if (email === normEmail(user.email)) return Response.json({ error: "That's your own email." }, { status: 400 })
 
-  const { data: mine } = await db.from('crushes').select('target_email').eq('sender_id', user.id)
-  if ((mine || []).length >= MAX_CRUSHES) return Response.json({ error: `You can have ${MAX_CRUSHES} secret crushes at a time.` }, { status: 400 })
+  const { data: mine } = await db.from('crushes').select('target_email,created_at').eq('sender_id', user.id)
+  if (recent(mine as any) >= MAX_CRUSHES) return Response.json({ error: `You can send ${MAX_CRUSHES} secret crushes a week. Come back soon.` }, { status: 400 })
   if ((mine || []).some(c => c.target_email === email)) return Response.json({ error: 'You already added them.' }, { status: 400 })
 
   const { data: target } = await db.from('profiles').select('id').eq('edu_email', email).maybeSingle()

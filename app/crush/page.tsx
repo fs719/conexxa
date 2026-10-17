@@ -63,9 +63,9 @@ export default function CrushPage() {
             {error && <p className="text-flame text-sm">{error}</p>}
             {sent && <p className="text-ok text-sm">Sent. Your name stays secret.</p>}
             <button disabled={busy || !email.trim()} className="w-full btn-flame py-3 rounded-full font-semibold">{busy ? 'Sending...' : 'Send secret crush'}</button>
-            <p className="text-mute text-xs text-center">{left} of 3 left</p>
+            <p className="text-mute text-xs text-center">{left} of 3 left this week</p>
           </form>
-        ) : <p className="text-mute text-center">You've used all 3 secret crushes.</p>}
+        ) : <p className="text-mute text-center">You've used all 3 this week. Each one comes back 7 days after you send it.</p>}
 
         <button type="button" onClick={async () => {
           const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
