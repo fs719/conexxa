@@ -66,11 +66,14 @@ export default function Swipe() {
       const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
       // Your school first, then everyone else. Each group is shuffled.
       const shuffle = (a: any[]) => a.sort(() => Math.random() - 0.5)
-      const first = shuffle(list.filter((p: any) => boost.includes(p.id)))
+      const admirerCards = list.filter((p: any) => boost.includes(p.id))
       const other = list.filter((p: any) => !boost.includes(p.id))
       const same = shuffle(other.filter((p: any) => mine && domain(p.edu_email) === mine))
       const rest = shuffle(other.filter((p: any) => !(mine && domain(p.edu_email) === mine)))
-      setPool([...first, ...same, ...rest])
+      const ordered = [...same, ...rest]
+      // Hide admirers among the first 10 cards at random spots so the order never gives them away.
+      for (const c of admirerCards) ordered.splice(Math.min(ordered.length, 2 + Math.floor(Math.random() * 8)), 0, c)
+      setPool(ordered)
       setLoading(false)
     }
     init()

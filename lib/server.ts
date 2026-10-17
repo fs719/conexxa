@@ -61,7 +61,7 @@ export async function sendCrushEmail(to: string) {
       from: 'Conexxa <verify@conexxa.net>',
       to: [to],
       subject: 'Someone at your school has a crush on you',
-      text: `Someone at your school has a crush on you.\n\nThey put your email into Conexxa, a way to meet people on campus. We will never say who it is. If you join and like them back, you both find out. If you don't, nobody ever knows.\n\nTake a look: https://conexxa.net\n\nYou will only get this email once. To make sure you never get one like it again: ${link}`,
+      text: `Someone at your school has a crush on you.\n\nThey put your email into Conexxa, a way to meet people on campus. We will never say who it is. If you join and like them back, you both find out. If you don't, nobody ever knows.\n\nTake a look: https://conexxa.net/?from=crush\n\nYou will only get this email once. To make sure you never get one like it again: ${link}`,
     }),
   })
   if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
