@@ -22,6 +22,7 @@ export default function Chat() {
   const pendingRef = useRef<Msg[]>([])
   const [sheet, setSheet] = useState(false)
   const [turn, setTurn] = useState(false)
+  const [score, setScore] = useState<number | null>(null)
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
 
@@ -50,7 +51,11 @@ export default function Chat() {
       if (new URLSearchParams(window.location.search).get('swap')) setSheet(true)
       const roundCheck = async () => {
         const r = await fetch(`/api/round?matchId=${id}`, { headers: headers() })
-        if (r.ok) setTurn((await r.json()).rounds.some((x: any) => x.unlocked && x.theyDone && !x.iDone))
+        if (r.ok) {
+          const x = (await r.json()).rounds[0]
+          setTurn(x.theyDone && !x.iDone)
+          setScore(x.both ? Math.round((x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length / x.both.mine.length) * 100) : null)
+        }
       }
       roundCheck(); timer2 = setInterval(roundCheck, 10000)
       setLoading(false)
@@ -98,12 +103,14 @@ export default function Chat() {
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 
-      <div className="flex gap-2 px-4 py-2 border-b border-line">
-        <Link href={`/rounds/${id}`} className="relative flex-1 text-center py-2 rounded-full bg-panel border border-line text-sm font-semibold hover:border-white/30 transition">
-          Play together
-          {turn && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full btn-flame" />}
-        </Link>
-        <button onClick={() => setSheet(true)} className="flex-1 py-2 rounded-full btn-flame text-sm font-semibold">Swap contacts</button>
+      <div className="px-4 py-2 border-b border-line">
+        {score === null ? (
+          <Link href={`/rounds/${id}`} className="relative block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
+            {turn ? `${other?.name || 'They'} did the vibe check. Your turn` : 'Vibe check: 3 quick picks'}
+          </Link>
+        ) : (
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score}% match. Swap Instagram</button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">

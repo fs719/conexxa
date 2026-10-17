@@ -8,7 +8,7 @@ export default function ContactSheet({ matchId, token, name, onClose }: { matchI
   const [mine, setMine] = useState<Contact | null>(null)
   const [theirs, setTheirs] = useState<Contact | null>(null)
   const [kind, setKind] = useState<Contact['kind']>('instagram')
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(() => { try { return localStorage.getItem('conexxa_handle') || '' } catch { return '' } })
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -27,6 +27,7 @@ export default function ContactSheet({ matchId, token, name, onClose }: { matchI
     const d = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setErr(d.error || 'Something went wrong.'); return }
+    try { localStorage.setItem('conexxa_handle', value.trim().replace(/^@/, '')) } catch {}
     apply(d)
   }
   const withdraw = async () => {
@@ -63,15 +64,11 @@ export default function ContactSheet({ matchId, token, name, onClose }: { matchI
           </>
         ) : (
           <>
-            <h2 className="text-2xl font-bold">Take it off the app</h2>
-            <p className="text-mute">Choose what to share. {name} only sees it if they choose to share theirs too. No awkward asking.</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(['instagram', 'snapchat', 'phone'] as const).map(k => (
-                <button key={k} onClick={() => { setKind(k); setValue('') }} className={`py-3 rounded-xl border text-sm font-medium transition ${kind === k ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>{k === 'phone' ? 'Phone' : k === 'instagram' ? 'Instagram' : 'Snapchat'}</button>
-              ))}
-            </div>
+            <h2 className="text-2xl font-bold">Swap Instagram?</h2>
+            <p className="text-mute">{name} only sees yours if they swap too. If they don't, nothing happens and nobody knows.</p>
             <input value={value} onChange={e => setValue(e.target.value)} inputMode={kind === 'phone' ? 'tel' : 'text'} autoCapitalize="none"
               placeholder={kind === 'phone' ? '(555) 123-4567' : '@username'} className="w-full bg-raised border border-line rounded-xl px-4 py-3 text-white placeholder:text-mute" />
+            <button onClick={() => { setKind(kind === 'phone' ? 'instagram' : 'phone'); setValue('') }} className="text-sm text-mute hover:text-white">{kind === 'phone' ? 'Use Instagram instead' : 'Use my phone number instead'}</button>
             {err && <p className="text-flame">{err}</p>}
             <button disabled={busy || !value.trim()} onClick={submit} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">{busy ? 'Saving...' : "I'm in"}</button>
           </>

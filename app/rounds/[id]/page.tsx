@@ -4,26 +4,25 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { ROUNDS } from '@/lib/rounds'
 
-type Status = { level: number; unlocked: boolean; iDone: boolean; theyDone: boolean; both: { mine: number[]; theirs: number[] } | null }
+const round = ROUNDS[0]
+type Status = { iDone: boolean; theyDone: boolean; both: { mine: number[]; theirs: number[] } | null }
 
-export default function Rounds() {
+export default function VibeCheck() {
   const router = useRouter()
   const { id } = useParams()
   const [token, setToken] = useState('')
   const [name, setName] = useState('them')
-  const [status, setStatus] = useState<Status[]>([])
-  const [loading, setLoading] = useState(true)
-  const [playing, setPlaying] = useState<number | null>(null)
-  const [viewing, setViewing] = useState<number | null>(null)
+  const [st, setSt] = useState<Status | null>(null)
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<number[]>([])
-  const [reveal, setReveal] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const [shown, setShown] = useState(0)
   const [error, setError] = useState('')
 
   const headers = (t = token) => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${t}` })
   const refresh = async (t = token) => {
     const r = await fetch(`/api/round?matchId=${id}`, { headers: headers(t) })
-    if (r.ok) setStatus((await r.json()).rounds)
+    if (r.ok) setSt((await r.json()).rounds[0])
   }
 
   useEffect(() => {
@@ -38,38 +37,41 @@ export default function Rounds() {
       const { data: p } = await supabase.from('profiles').select('name').eq('id', otherId).single()
       if (p?.name) setName(p.name)
       await refresh(session.access_token)
-      setLoading(false)
-      timer = setInterval(() => refresh(session.access_token), 4000)
+      timer = setInterval(() => refresh(session.access_token), 3000)
     })()
     return () => clearInterval(timer)
   }, [])
 
-  const start = (level: number) => { setPlaying(level); setStep(0); setAnswers([]); setError('') }
-
   const pick = async (idx: number) => {
-    const round = ROUNDS.find(r => r.level === playing)!
     const next = [...answers, idx]
     if (next.length < round.qs.length) { setAnswers(next); setStep(step + 1); return }
-    const r = await fetch('/api/round', { method: 'POST', headers: headers(), body: JSON.stringify({ matchId: id, level: playing, answers: next }) })
+    setAnswers(next)
+    const r = await fetch('/api/round', { method: 'POST', headers: headers(), body: JSON.stringify({ matchId: id, level: 1, answers: next }) })
     const d = await r.json().catch(() => ({}))
-    if (!r.ok) { setError(d.error || 'Something went wrong.'); return }
-    setStatus(d.rounds); setPlaying(null)
-    const s = d.rounds.find((x: Status) => x.level === round.level)
-    if (s?.both) { setViewing(round.level); setReveal(0) }
+    if (!r.ok) { setError(d.error || 'Something went wrong.'); setAnswers([]); setStep(0); return }
+    setSt(d.rounds[0])
   }
 
-  if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Loading...</main>
+  const score = st?.both ? Math.round((round.qs.filter((_, i) => st.both!.mine[i] === st.both!.theirs[i]).length / round.qs.length) * 100) : 0
 
-  // Playing a round
-  if (playing) {
-    const round = ROUNDS.find(r => r.level === playing)!
+  useEffect(() => {
+    if (!revealed) return
+    let n = 0
+    const t = setInterval(() => { n += 4; if (n >= score) { n = score; clearInterval(t) } setShown(n) }, 25)
+    return () => clearInterval(t)
+  }, [revealed, score])
+
+  if (!st) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Loading...</main>
+
+  // 1. Answering
+  if (!st.iDone) {
     const q = round.qs[step]
     return (
       <main className="min-h-dvh bg-ink text-white p-6">
         <div className="max-w-md mx-auto space-y-6">
           <div className="flex items-center justify-between">
-            <button onClick={() => setPlaying(null)} className="text-mute hover:text-white">← Leave</button>
-            <p className="text-mute text-sm">{round.title} · {step + 1} of {round.qs.length}</p>
+            <button onClick={() => router.push(`/chat/${id}`)} className="text-mute hover:text-white">← Back</button>
+            <p className="text-mute text-sm">{step + 1} of {round.qs.length}</p>
           </div>
           <div className="h-1.5 rounded-full bg-raised overflow-hidden"><div className="h-full btn-flame transition-all" style={{ width: `${(step / round.qs.length) * 100}%` }} /></div>
           <h1 className="text-3xl font-bold leading-tight pt-4">{q.q}</h1>
@@ -84,68 +86,49 @@ export default function Rounds() {
     )
   }
 
-  // Reveal results
-  if (viewing) {
-    const round = ROUNDS.find(r => r.level === viewing)!
-    const s = status.find(x => x.level === viewing)
-    if (s?.both) {
-      const same = round.qs.map((_, i) => s.both!.mine[i] === s.both!.theirs[i])
-      const score = Math.round((same.filter(Boolean).length / round.qs.length) * 100)
-      const done = reveal >= round.qs.length
-      const next = status.find(x => x.level === viewing + 1)
-      const bothSwap = viewing === 3 && s.both.mine[4] === 0 && s.both.theirs[4] === 0
-      return (
-        <main className="min-h-dvh bg-ink text-white p-6">
-          <div className="max-w-md mx-auto space-y-5">
-            <button onClick={() => setViewing(null)} className="text-mute hover:text-white">← Back</button>
-            <h1 className="text-3xl font-bold">{round.title} results</h1>
-            {round.qs.slice(0, reveal).map((q, i) => (
-              <div key={q.q} className="pop rounded-2xl bg-panel border border-line p-4 space-y-1">
-                <p className="text-mute text-sm">{q.q}</p>
-                <p><span className="text-mute">You:</span> {q.options[s.both!.mine[i]]}</p>
-                <p><span className="text-mute">{name}:</span> {q.options[s.both!.theirs[i]]}</p>
-                {same[i] && <p className="text-ok font-semibold pt-1">Same pick</p>}
-              </div>
-            ))}
-            {!done && <button onClick={() => setReveal(reveal + 1)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">{reveal === 0 ? 'Reveal first answer' : 'Next answer'}</button>}
-            {done && (
-              <div className="space-y-4 pt-2">
-                <div className="pop text-center rounded-3xl bg-panel border border-line p-8">
-                  <p className="text-mute">Your match score</p>
-                  <p className="text-7xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{score}%</p>
-                </div>
-                {bothSwap && <p className="text-center text-ok font-semibold">You both said you're ready to swap.</p>}
-                <button onClick={() => router.push(`/chat/${id}${bothSwap ? '?swap=1' : ''}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">{bothSwap ? 'Swap contacts' : 'Back to chat'}</button>
-                {next?.unlocked && !next.iDone && <button onClick={() => { setViewing(null); start(next.level) }} className="w-full border border-line rounded-full py-4 font-semibold">Play the next round</button>}
-              </div>
-            )}
-          </div>
-        </main>
-      )
-    }
-  }
+  // 2. Waiting
+  if (!st.both) return (
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-5">
+        <h1 className="text-3xl font-bold">Locked in</h1>
+        <p className="text-mute">Waiting for {name}. Your score shows up here the second they finish.</p>
+        <button onClick={() => router.push(`/chat/${id}`)} className="btn-flame px-8 py-3 rounded-full font-semibold">Back to chat</button>
+      </div>
+    </main>
+  )
+
+  // 3. Reveal
+  const same = round.qs.map((_, i) => st.both!.mine[i] === st.both!.theirs[i])
+  if (!revealed) return (
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-6">
+        <h1 className="text-3xl font-bold">You both finished</h1>
+        <p className="text-mute">Ready to see how you match with {name}?</p>
+        <button onClick={() => setRevealed(true)} className="w-full btn-flame py-5 rounded-full font-bold text-xl">Reveal</button>
+      </div>
+    </main>
+  )
 
   return (
     <main className="min-h-dvh bg-ink text-white p-6">
-      <div className="max-w-md mx-auto space-y-4">
-        <button onClick={() => router.push(`/chat/${id}`)} className="text-mute hover:text-white">← Back to chat</button>
-        <h1 className="text-3xl font-bold">Play with {name}</h1>
-        <p className="text-mute">Answer privately. Answers are revealed together when you both finish.</p>
-        {ROUNDS.map(r => {
-          const s = status.find(x => x.level === r.level)
-          const action = !s?.unlocked ? { t: `Finish round ${r.level - 1} together to unlock`, on: undefined as any }
-            : s.both ? { t: 'See results', on: () => { setViewing(r.level); setReveal(0) } }
-            : s.iDone ? { t: `Waiting for ${name} to finish`, on: undefined as any }
-            : { t: s.theyDone ? `${name} finished. Your turn` : 'Start', on: () => start(r.level) }
-          return (
-            <button key={r.level} disabled={!action.on} onClick={action.on}
-              className={`w-full text-left p-5 rounded-2xl border transition ${action.on ? 'bg-panel border-line hover:border-white/30' : 'border-line opacity-60'}`}>
-              <p className="text-xl font-semibold">{r.title}</p>
-              <p className="text-mute text-sm">{r.blurb}</p>
-              <p className={`text-sm mt-2 ${action.on ? 'text-ember font-medium' : 'text-mute'}`}>{action.t}</p>
-            </button>
-          )
-        })}
+      <div className="max-w-md mx-auto space-y-6 pt-6">
+        <div className="text-center">
+          <p className="text-8xl font-extrabold bg-clip-text text-transparent tabular-nums" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{shown}%</p>
+          <p className="text-mute mt-1">match with {name}</p>
+        </div>
+        <div className="space-y-2">
+          {round.qs.map((q, i) => (
+            <div key={q.q} className="rounded-2xl bg-panel border border-line px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-mute">{q.q}</p>
+                <p className="truncate">{q.options[st.both!.mine[i]]} <span className="text-mute">/</span> {q.options[st.both!.theirs[i]]}</p>
+              </div>
+              {same[i] && <span className="text-ok text-sm font-semibold shrink-0">Same</span>}
+            </div>
+          ))}
+        </div>
+        <button onClick={() => router.push(`/chat/${id}?swap=1`)} className="w-full btn-flame py-4 rounded-full font-bold text-lg">Swap Instagram</button>
+        <button onClick={() => router.push(`/chat/${id}`)} className="w-full text-mute hover:text-white py-2">Back to chat</button>
       </div>
     </main>
   )
