@@ -105,6 +105,13 @@ async function main() {
   ok('other person sees the message', got.j?.messages?.some(m => m.content === 'hello from e2e' && m.sender_id === A.id))
   ok('outsider cannot read chat', (await api(`/api/messages?matchId=${matchId}`, C.token)).status === 404)
 
+  {
+    const sd = await admin.from('profiles').select('school_domain').limit(1)
+    console.log('INFO school_domain column:', sd.error ? 'MISSING ' + sd.error.message : 'present')
+    const anon2 = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
+    const r2 = await anon2.from('profiles').select('id').limit(1)
+    console.log('INFO anon profiles read:', r2.error ? r2.error.message : 'rows ' + r2.data?.length)
+  }
   // Data privacy and tamper checks, done the way a curious or hostile user could (straight at the database)
   {
     const nobody = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
