@@ -5,6 +5,7 @@ import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import ContactSheet from '@/components/ContactSheet'
+import { ROUNDS } from '@/lib/rounds'
 
 type Msg = { id: string; sender_id: string; content: string; created_at: string; pending?: boolean; failed?: boolean }
 
@@ -55,7 +56,7 @@ export default function Chat() {
         if (r.ok) {
           const x = (await r.json()).rounds[0]
           setTurn(x.theyDone && !x.iDone)
-          setScore(x.both ? Math.round((x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length / x.both.mine.length) * 100) : null)
+          setScore(x.both ? x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length : null)
         }
       }
       roundCheck(); timer2 = setInterval(roundCheck, 10000)
@@ -111,13 +112,16 @@ export default function Chat() {
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 
-      <div className="px-4 py-2 border-b border-line">
+      <div className="px-4 py-2 border-b border-line flex gap-2">
         {score === null ? (
-          <Link href={`/rounds/${id}`} className="relative block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
-            {turn ? `${other?.name || 'They'} did the vibe check. Your turn` : 'Vibe check: 3 quick picks'}
-          </Link>
+          <>
+            <Link href={`/rounds/${id}`} className="relative flex-1 block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
+              {turn ? `${other?.name || 'They'} did the vibe check. Your turn` : 'Vibe check: 3 quick picks'}
+            </Link>
+            <button onClick={() => setSheet(true)} className="px-4 py-2.5 rounded-full border border-line hover:border-white/30 text-sm font-semibold">Swap</button>
+          </>
         ) : (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score}% match. Swap Instagram</button>
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUNDS[0].qs.length} matched. Swap Instagram</button>
         )}
       </div>
 

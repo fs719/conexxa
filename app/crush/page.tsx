@@ -68,9 +68,9 @@ export default function CrushPage() {
         ) : <p className="text-mute text-center">You've used all 3 this week. Each one comes back 7 days after you send it.</p>}
 
         <button type="button" onClick={async () => {
-          const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
+          const url = 'https://conexxa.net', text = 'Got a crush on someone at school? Send it secretly on Conexxa.'
           try { if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return } await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
-        }} className="w-full border border-line hover:border-white/30 py-3 rounded-full font-semibold transition">{copied ? 'Link copied' : 'Send this to your group chat'}</button>
+        }} className="w-full border border-line hover:border-white/30 py-3 rounded-full font-semibold transition">{copied ? 'Link copied' : 'Tell a friend'}</button>
 
         {crushes.length > 0 && (
           <div className="space-y-2">

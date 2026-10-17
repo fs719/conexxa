@@ -50,6 +50,7 @@ export default function Matches() {
     return h > 0 ? `${h}h ${mi}m left` : `${mi}m left`
   }
   const myAnswer = (m: any) => (m.user1_id === userId ? m.user1_answer : m.user2_answer)
+  const theirAnswer = (m: any) => (m.user1_id === userId ? m.user2_answer : m.user1_answer)
 
   const live = matches.filter(m => !expired(m))
   const gone = matches.filter(expired)
@@ -66,7 +67,7 @@ export default function Matches() {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-lg truncate">{m.other?.name || 'Match'}</p>
           <p className={`text-sm ${unlocked ? 'text-ok' : answered ? 'text-mute' : 'text-ember'}`}>
-            {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : `Answer one question · ${left(m)}`}
+            {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : theirAnswer(m) ? `They answered. Your turn · ${left(m)}` : `Answer one question · ${left(m)}`}
           </p>
         </div>
         <span className="text-mute text-xl">›</span>

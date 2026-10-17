@@ -16,7 +16,6 @@ export default function VibeCheck() {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<number[]>([])
   const [revealed, setRevealed] = useState(false)
-  const [shown, setShown] = useState(0)
   const [error, setError] = useState('')
 
   const headers = (t = token) => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${t}` })
@@ -52,14 +51,7 @@ export default function VibeCheck() {
     setSt(d.rounds[0])
   }
 
-  const score = st?.both ? Math.round((round.qs.filter((_, i) => st.both!.mine[i] === st.both!.theirs[i]).length / round.qs.length) * 100) : 0
-
-  useEffect(() => {
-    if (!revealed) return
-    let n = 0
-    const t = setInterval(() => { n += 4; if (n >= score) { n = score; clearInterval(t) } setShown(n) }, 25)
-    return () => clearInterval(t)
-  }, [revealed, score])
+  const score = st?.both ? round.qs.filter((_, i) => st.both!.mine[i] === st.both!.theirs[i]).length : 0
 
   if (!st) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Loading...</main>
 
@@ -113,8 +105,8 @@ export default function VibeCheck() {
     <main className="min-h-dvh bg-ink text-white p-6">
       <div className="max-w-md mx-auto space-y-6 pt-6">
         <div className="text-center">
-          <p className="text-8xl font-extrabold bg-clip-text text-transparent tabular-nums" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{shown}%</p>
-          <p className="text-mute mt-1">match with {name}</p>
+          <p className="pop text-8xl font-extrabold bg-clip-text text-transparent tabular-nums" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{score} of {round.qs.length}</p>
+          <p className="text-mute mt-1">answers matched with {name}</p>
         </div>
         <div className="space-y-2">
           {round.qs.map((q, i) => (

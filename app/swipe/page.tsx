@@ -168,7 +168,7 @@ export default function Swipe() {
             </div>
           ))}
         </div>
-        <p className="text-mute">You and {match.other.name} liked each other. Answer one question together to open the chat. You have 24 hours.</p>
+        <p className="text-mute">You and {match.other.name} liked each other. Answer one question together to open the chat. You have 48 hours.</p>
         <div className="space-y-3">
           <button onClick={() => router.push(`/icebreaker/${match.id}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">Answer the question</button>
           <button onClick={() => { next(match.other.id); setMatch(null) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>
@@ -265,7 +265,7 @@ function Switch({ show, choose }: { show: string; choose: (v: string) => void })
 function InviteButton() {
   const [copied, setCopied] = useState(false)
   const go = async () => {
-    const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
+    const url = 'https://conexxa.net', text = 'Got a crush on someone at school? Send it secretly on Conexxa.'
     try {
       if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return }
       await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000)

@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     user1_id: user.id,
     user2_id: swipedId,
     icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
-    expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
+    expires_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
   }).select('id').single()
   if (mErr) return Response.json({ error: mErr.message }, { status: 500 })
   return Response.json({ matched: true, id: created.id })

@@ -45,7 +45,7 @@ export default function Settings() {
 
   const [copied, setCopied] = useState(false)
   const invite = async () => {
-    const url = 'https://conexxa.net', text = 'Your group chat needs this. Send a secret crush on Conexxa before someone sends you one.'
+    const url = 'https://conexxa.net', text = 'Got a crush on someone at school? Send it secretly on Conexxa.'
     try {
       if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return }
       await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000)
@@ -89,7 +89,7 @@ export default function Settings() {
             <button key={v} onClick={() => setForm({ ...form, intent: v })} className={pill(form.intent === v)}>{l}</button>
           ))}
         </div>
-        <p className="text-mute text-xs">Casual profiles show blurred until you match.</p>
+        <p className="text-mute text-xs">Casual: photo and name hidden until you match. Serious: shown openly.</p>
         <p className="text-mute text-sm">Show me</p>
         <div className="grid grid-cols-3 gap-3">
           {[['Male', 'Men'], ['Female', 'Women'], ['everyone', 'Everyone']].map(([v, l]) => (

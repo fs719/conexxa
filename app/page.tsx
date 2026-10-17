@@ -28,8 +28,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
           <Link href="/signup" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Create account</Link>
           <Link href="/login" className="block text-center py-4 rounded-full font-semibold text-lg border border-line hover:border-white/30 transition">Log in</Link>
         </div>
-        {week >= 10 && <p className="text-sm text-ok mt-6">{week} secret crushes sent this week</p>}
+        {week >= 10 && <p className="text-sm text-ok mt-6">{week} secret crushes sent this week by verified students</p>}
         <p className="text-sm text-mute mt-3">For college students. You'll verify with your .edu email.</p>
+        <p className="text-sm text-mute mt-2">No public feed. No posts. A crush only ever points at one person.</p>
       </div>
       <footer className="w-full max-w-md mx-auto py-6 text-xs text-mute flex gap-5">
         <Link href="/terms" className="hover:text-white">Terms</Link>

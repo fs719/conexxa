@@ -33,7 +33,7 @@ export async function backfillMatches(db: DB, userId: string) {
     const { error } = await db.from('matches').insert({
       user1_id: userId, user2_id: other,
       icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
-      expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
+      expires_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
     })
     if (!error) created++
   }

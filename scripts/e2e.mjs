@@ -87,7 +87,7 @@ async function main() {
   ok('backfill creates no duplicate', (await api('/api/swipe', A.token)).j?.created === 0)
   const { data: ms } = await admin.from('matches').select('*').or(`user1_id.eq.${A.id},user2_id.eq.${A.id}`)
   ok('exactly one match row', ms?.length === 1, `rows ${ms?.length}`)
-  ok('match expires in about 24h', ms?.[0] && Math.abs(new Date(ms[0].expires_at + 'Z') - Date.now() - 86400000) < 600000)
+  ok('match expires in about 48h', ms?.[0] && Math.abs(new Date(ms[0].expires_at + 'Z') - Date.now() - 172800000) < 600000)
 
   // Icebreaker unlocks chat
   const prompt = ms?.[0]?.icebreaker_prompt

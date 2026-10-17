@@ -229,7 +229,7 @@ export default function SignUp() {
                 <button key={opt.value} onClick={() => update('intent', opt.value)}
                   className={`w-full py-4 rounded-xl border text-left px-4 transition ${form.intent === opt.value ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>
                   {opt.label}
-                  {opt.value === 'casual' && <span className="block text-sm opacity-80 mt-1">Your photo stays blurred until you match.</span>}
+                  <span className="block text-sm opacity-80 mt-1">{opt.value === 'casual' ? 'Your photo and name stay hidden until you match.' : 'Your photo and name are shown openly.'}</span>
                 </button>
               ))}
             </div>
