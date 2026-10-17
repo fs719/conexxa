@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseTs } from '@/lib/time'
 import { useRouter } from 'next/navigation'
 
 export default function Matches() {
@@ -48,9 +49,9 @@ export default function Matches() {
     init()
   }, [])
 
-  const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date()
+  const isExpired = (expiresAt: string) => parseTs(expiresAt) < new Date()
   const timeLeft = (expiresAt: string) => {
-    const ms = new Date(expiresAt).getTime() - Date.now()
+    const ms = parseTs(expiresAt).getTime() - Date.now()
     const h = Math.floor(ms / 3600000)
     const m = Math.floor((ms % 3600000) / 60000)
     return h > 0 ? `${h}h ${m}m left` : `${m}m left`

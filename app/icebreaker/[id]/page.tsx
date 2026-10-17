@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
 
 export default function Icebreaker() {
@@ -25,7 +26,7 @@ export default function Icebreaker() {
         .single()
 
       if (!matchData || matchData.chat_unlocked) { router.push(matchData ? `/chat/${id}` : '/matches'); return }
-      if (new Date(matchData.expires_at) < new Date()) { router.push('/matches'); return }
+      if (parseTs(matchData.expires_at) < new Date()) { router.push('/matches'); return }
       setMatch(matchData)
       setLoading(false)
     }

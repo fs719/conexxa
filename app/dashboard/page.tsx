@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseTs } from '@/lib/time'
 import { useRouter } from 'next/navigation'
 
 export default function Dashboard() {
@@ -22,7 +23,7 @@ export default function Dashboard() {
       } catch {}
       const { data: ms } = await supabase.from('matches').select('user1_answer,user2_answer,user1_id,expires_at,chat_unlocked')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-      setPending((ms || []).filter((m: any) => !m.chat_unlocked && new Date(m.expires_at) > new Date()).length)
+      setPending((ms || []).filter((m: any) => !m.chat_unlocked && parseTs(m.expires_at) > new Date()).length)
     }
     getUser()
   }, [])
