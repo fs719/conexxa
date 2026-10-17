@@ -48,9 +48,28 @@ async function main() {
   ok('normal landing text', (await text('/')).body.includes('Match first'))
   ok('bad opt-out link rejected', (await text('/api/crush/optout?e=a@b.edu&t=bad')).body.includes('not valid'))
 
+  // Diagnostics: is the live site talking to the same Supabase project as these keys?
+  const host = new URL(URL_).host
+  const html = (await text('/login')).body
+  const srcs = [...html.matchAll(/\/_next\/static\/[^"']+\.js/g)].map(m => m[0])
+  const hosts = new Set()
+  for (const src of [...new Set(srcs)].slice(0, 30)) {
+    const js = (await text(src)).body
+    for (const m of js.matchAll(/https:\/\/([a-z0-9]+)\.supabase\.co/g)) hosts.add(m[1] + '.supabase.co')
+  }
+  console.log('INFO test keys project:', host, '| live site project(s):', [...hosts].join(', ') || 'not found')
+  ok('live site uses the same Supabase project as the test keys', hosts.has(host))
+
   const A = await mkUser('a', 'Male', 'casual')
   const B = await mkUser('b', 'Female', 'casual')
   const C = await mkUser('c', 'Female', 'serious')
+
+  // Does Supabase itself accept the test token?
+  const direct = await fetch(`${URL_}/auth/v1/user`, { headers: { apikey: ANON, Authorization: `Bearer ${A.token}` } })
+  ok('Supabase accepts the test login token', direct.status === 200, `status ${direct.status}`)
+  const probe = await api('/api/crush', A.token)
+  console.log('INFO live site answer to a valid token:', probe.status, JSON.stringify(probe.j))
+  try { const pl = JSON.parse(Buffer.from(A.token.split('.')[1], 'base64url').toString()); console.log('INFO token iss:', pl.iss, 'role:', pl.role) } catch {}
 
   // Locked-down endpoints
   ok('stats blocked without login', (await api('/api/stats', null)).status === 403)
