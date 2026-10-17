@@ -14,6 +14,10 @@ export default function Matches() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUserId(user.id)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await fetch('/api/swipe', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+      } catch {}
 
       const { data: matchData } = await supabase
         .from('matches')

@@ -89,39 +89,16 @@ export default function Swipe() {
   const handleSwipe = async (direction: 'like' | 'skip') => {
     const profile = profiles[current]
     if (!profile) return
-
-    await supabase.from('swipes').insert({
-      swiper_id: userId,
-      swiped_id: profile.id,
-      direction,
-    })
-
-    if (direction === 'like') {
-      const { data: theirSwipe } = await supabase
-        .from('swipes')
-        .select('*')
-        .eq('swiper_id', profile.id)
-        .eq('swiped_id', userId)
-        .eq('direction', 'like')
-        .single()
-
-      if (theirSwipe) {
-        const prompts = userIntent === 'serious' ? ICEBREAKERS_SERIOUS : ICEBREAKERS_CASUAL
-        const prompt = prompts[Math.floor(Math.random() * prompts.length)]
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-
-        await supabase.from('matches').insert({
-          user1_id: userId,
-          user2_id: profile.id,
-          icebreaker_prompt: prompt,
-          expires_at: expires,
-        })
-
-        router.push('/matches')
-        return
-      }
-    }
-
+    const { data: { session } } = await supabase.auth.getSession()
+    try {
+      const res = await fetch('/api/swipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ swipedId: profile.id, direction }),
+      })
+      const data = await res.json()
+      if (data.matched) { router.push('/matches'); return }
+    } catch {}
     setCurrent(prev => prev + 1)
   }
 
