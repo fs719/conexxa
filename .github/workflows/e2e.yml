@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths-ignore: ['supabase/**', '**/*.md']
+permissions:
+  contents: write
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -16,9 +18,27 @@ jobs:
       - name: Wait for the Vercel deploy
         if: github.event_name == 'push'
         run: sleep 180
-      - run: node scripts/e2e.mjs
+      - name: Run the test
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/e2e.mjs 2>&1 | tee /tmp/result.txt
         env:
           BASE_URL: https://conexxa.net
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Publish results to the e2e-results branch
+        if: always()
+        shell: bash
+        run: |
+          [ -f /tmp/result.txt ] || echo "FAIL the test did not run (missing secrets or setup error)" > /tmp/result.txt
+          { echo "commit: ${GITHUB_SHA}"; echo "time: $(date -u +%FT%TZ)"; echo; cat /tmp/result.txt; } > /tmp/out.txt
+          git config user.name e2e
+          git config user.email e2e@users.noreply.github.com
+          git checkout --orphan e2e-results
+          git rm -rf . -q
+          cp /tmp/out.txt result.txt
+          git add result.txt
+          git commit -q -m "e2e result for ${GITHUB_SHA}"
+          git push -f origin e2e-results
