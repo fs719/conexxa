@@ -21,6 +21,7 @@ export async function POST(req: Request) {
   const { error } = await db.from('matches').delete().eq('id', matchId)
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
+  await db.from('swipes').delete().or(`and(swiper_id.eq.${user.id},swiped_id.eq.${other}),and(swiper_id.eq.${other},swiped_id.eq.${user.id})`)
   await db.from('blocks').insert({ blocker_id: user.id, blocked_id: other })
   return Response.json({ ok: true })
 }

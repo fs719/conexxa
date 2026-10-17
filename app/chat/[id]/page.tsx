@@ -28,6 +28,7 @@ export default function Chat() {
 
   const load = async () => {
     const r = await fetch(`/api/messages?matchId=${id}`, { headers: headers() })
+    if (r.status === 404 || r.status === 403) { router.push('/matches'); return }
     if (!r.ok) return
     const { messages: server } = await r.json()
     setMessages([...server, ...pendingRef.current])

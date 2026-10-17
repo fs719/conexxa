@@ -26,6 +26,9 @@ export async function POST(req: Request) {
 
   const { data: theirs } = await db.from('swipes').select('id').eq('swiper_id', swipedId).eq('swiped_id', user.id).eq('direction', 'like').limit(1)
   if (!theirs?.length) return Response.json({ matched: false })
+  const { data: blk } = await db.from('blocks').select('blocker_id')
+    .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${swipedId}),and(blocker_id.eq.${swipedId},blocked_id.eq.${user.id})`).limit(1)
+  if (blk?.length) return Response.json({ matched: false })
 
   const { data: existing } = await db.from('matches').select('id')
     .or(`and(user1_id.eq.${user.id},user2_id.eq.${swipedId}),and(user1_id.eq.${swipedId},user2_id.eq.${user.id})`).limit(1)
@@ -54,7 +57,9 @@ export async function GET(req: Request) {
   const likedIds = (mine || []).map(r => r.swiped_id)
   if (!likedIds.length) return Response.json({ created: 0 })
   const { data: back } = await db.from('swipes').select('swiper_id').eq('swiped_id', user.id).eq('direction', 'like').in('swiper_id', likedIds)
-  const mutual = [...new Set((back || []).map(r => r.swiper_id))]
+  const { data: bl } = await db.from('blocks').select('blocker_id,blocked_id').or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`)
+  const hidden = new Set((bl || []).map(b => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id)))
+  const mutual = [...new Set((back || []).map(r => r.swiper_id))].filter(id => !hidden.has(id))
 
   const { data: me } = await db.from('profiles').select('intent').eq('id', user.id).maybeSingle()
   const pool = me?.intent === 'serious' ? SERIOUS : CASUAL
