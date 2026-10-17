@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import ContactSheet from '@/components/ContactSheet'
 
 type Msg = { id: string; sender_id: string; content: string; created_at: string; pending?: boolean; failed?: boolean }
 
@@ -19,6 +20,8 @@ export default function Chat() {
   const token = useRef('')
   const bottom = useRef<HTMLDivElement>(null)
   const pendingRef = useRef<Msg[]>([])
+  const [sheet, setSheet] = useState(false)
+  const [turn, setTurn] = useState(false)
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
 
@@ -30,7 +33,7 @@ export default function Chat() {
   }
 
   useEffect(() => {
-    let timer: any
+    let timer: any, timer2: any
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
@@ -44,10 +47,16 @@ export default function Chat() {
       const { data: p } = await supabase.from('profiles').select('name, photo_url').eq('id', otherId).single()
       setOther(p)
       await load()
+      if (new URLSearchParams(window.location.search).get('swap')) setSheet(true)
+      const roundCheck = async () => {
+        const r = await fetch(`/api/round?matchId=${id}`, { headers: headers() })
+        if (r.ok) setTurn((await r.json()).rounds.some((x: any) => x.unlocked && x.theyDone && !x.iDone))
+      }
+      roundCheck(); timer2 = setInterval(roundCheck, 10000)
       setLoading(false)
       timer = setInterval(load, 2500)
     })()
-    return () => clearInterval(timer)
+    return () => { clearInterval(timer); clearInterval(timer2) }
   }, [])
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
@@ -89,6 +98,14 @@ export default function Chat() {
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 
+      <div className="flex gap-2 px-4 py-2 border-b border-line">
+        <Link href={`/rounds/${id}`} className="relative flex-1 text-center py-2 rounded-full bg-panel border border-line text-sm font-semibold hover:border-white/30 transition">
+          Play together
+          {turn && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full btn-flame" />}
+        </Link>
+        <button onClick={() => setSheet(true)} className="flex-1 py-2 rounded-full btn-flame text-sm font-semibold">Swap contacts</button>
+      </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {myAnswer && theirAnswer && (
           <div className="rounded-2xl bg-panel border border-line p-4 mb-4 text-sm">
@@ -110,6 +127,8 @@ export default function Chat() {
         ))}
         <div ref={bottom} />
       </div>
+
+      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} onClose={() => setSheet(false)} />}
 
       <form onSubmit={e => { e.preventDefault(); send() }} className="flex gap-2 px-4 py-3 border-t border-line" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={1000} autoComplete="off"

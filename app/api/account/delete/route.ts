@@ -9,7 +9,11 @@ export async function POST(req: Request) {
 
   const { data: ms } = await db.from('matches').select('id').or(`user1_id.eq.${id},user2_id.eq.${id}`)
   const matchIds = (ms || []).map(m => m.id)
-  if (matchIds.length) await db.from('messages').delete().in('match_id', matchIds)
+  if (matchIds.length) {
+    await db.from('messages').delete().in('match_id', matchIds)
+    await db.from('match_rounds').delete().in('match_id', matchIds)
+    await db.from('contact_exchange').delete().in('match_id', matchIds)
+  }
   await db.from('matches').delete().or(`user1_id.eq.${id},user2_id.eq.${id}`)
   await db.from('swipes').delete().or(`swiper_id.eq.${id},swiped_id.eq.${id}`)
   await db.from('blocks').delete().or(`blocker_id.eq.${id},blocked_id.eq.${id}`)
