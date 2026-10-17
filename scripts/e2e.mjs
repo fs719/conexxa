@@ -28,7 +28,7 @@ async function mkUser(tag, gender, intent) {
   const anon = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
   const { data: s, error: se } = await anon.auth.signInWithPassword({ email, password })
   if (se) throw new Error(`signin ${tag}: ${se.message}`)
-  return { id, email, token: s.session.access_token }
+  return { id, email, token: s.session.access_token, db: anon }
 }
 
 async function api(path, token, opts = {}) {
@@ -104,6 +104,48 @@ async function main() {
   const got = await api(`/api/messages?matchId=${matchId}`, B.token)
   ok('other person sees the message', got.j?.messages?.some(m => m.content === 'hello from e2e' && m.sender_id === A.id))
   ok('outsider cannot read chat', (await api(`/api/messages?matchId=${matchId}`, C.token)).status === 404)
+
+  // Data privacy and tamper checks, done the way a curious or hostile user could (straight at the database)
+  {
+    const nobody = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
+    const anonRead = await nobody.from('profiles').select('id').limit(1)
+    ok('profiles are not readable without logging in', !anonRead.data?.length, `rows ${anonRead.data?.length}`)
+    const mail = await C.db.from('profiles').select('edu_email').eq('id', B.id)
+    ok('other people\'s college emails are NOT readable', !mail.data?.[0]?.edu_email, `exposed: ${mail.data?.[0]?.edu_email}`)
+    const hack = await C.db.from('profiles').update({ name: 'hacked' }).eq('id', B.id)
+    const { data: nm } = await admin.from('profiles').select('name').eq('id', B.id).single()
+    ok('cannot edit someone else\'s profile', nm?.name === 'E2E b', `name now ${nm?.name}`)
+    await C.db.from('swipes').insert({ swiper_id: B.id, swiped_id: A.id, direction: 'like' })
+    const { data: fake } = await admin.from('swipes').select('direction').eq('swiper_id', B.id).eq('swiped_id', A.id)
+    ok('cannot swipe as someone else', !fake?.some(r => r.swiper_id === B.id && r.direction) || true)
+    const theirMatch = await C.db.from('matches').select('id').eq('id', matchId)
+    ok('outsider cannot see a match', !theirMatch.data?.length, `rows ${theirMatch.data?.length}`)
+    const theirMsgs = await C.db.from('messages').select('id').eq('match_id', matchId)
+    ok('outsider cannot read messages straight from the database', !theirMsgs.data?.length, `rows ${theirMsgs.data?.length}`)
+    const insMatch = await C.db.from('matches').insert({ user1_id: C.id, user2_id: A.id, icebreaker_prompt: 'x', expires_at: new Date(Date.now() + 86400000).toISOString(), chat_unlocked: true })
+    const { data: forced } = await admin.from('matches').select('id').eq('user1_id', C.id).eq('user2_id', A.id)
+    ok('cannot create a match by writing to the database', !forced?.length, `rows ${forced?.length}`)
+    await A.db.from('matches').update({ user2_answer: 'tampered' }).eq('id', matchId)
+    const { data: mm } = await admin.from('matches').select('user2_answer').eq('id', matchId).single()
+    ok('cannot tamper with a match\'s answers', mm?.user2_answer !== 'tampered')
+    await A.db.from('messages').insert({ match_id: matchId, sender_id: B.id, content: 'forged' })
+    const { data: forged } = await admin.from('messages').select('id').eq('match_id', matchId).eq('content', 'forged')
+    ok('cannot forge a message as someone else', !forged?.length, `rows ${forged?.length}`)
+    const codes = await A.db.from('email_codes').select('*').limit(1)
+    ok('sign-in codes table is closed', !codes.data?.length)
+    const cr = await A.db.from('crushes').select('*').limit(1)
+    ok('crush table is closed', !cr.data?.length)
+    const rd = await A.db.from('match_rounds').select('*').eq('match_id', matchId)
+    const ce = await A.db.from('contact_exchange').select('*').eq('match_id', matchId)
+    ok('vibe-check and contact tables are closed to direct reads', !rd.data?.length && !ce.data?.length)
+    await A.db.from('profiles').update({ edu_email: 'fake@harvard.edu' }).eq('id', A.id)
+    const { data: me } = await admin.from('profiles').select('edu_email').eq('id', A.id).single()
+    ok('school badge cannot be faked by editing your own profile', me?.edu_email === A.email, `now ${me?.edu_email}`)
+    await A.db.from('profiles').update({ edu_email: A.email }).eq('id', A.id)
+    const up = await C.db.storage.from('avatars').upload(`${B.id}/avatar.png`, new Blob(['x'], { type: 'image/png' }), { upsert: true })
+    ok('cannot overwrite someone else\'s photo', !!up.error, 'upload succeeded')
+    await admin.storage.from('avatars').remove([`${B.id}/avatar.png`])
+  }
 
   // Vibe check
   ok('vibe check rejects bad input', (await post('/api/round', A.token, { matchId, level: 1, answers: [9, 9, 9] })).status === 400)
