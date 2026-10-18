@@ -1,0 +1,18 @@
+// Read-only look at real (non-test) accounts, matches, swipes and crushes. Run from the workflow with script=scripts/diag.mjs.
+import { createClient } from '@supabase/supabase-js'
+const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+const { data: ps } = await db.from('profiles').select('*')
+const real = (ps || []).filter(p => !/e2e-test\.edu$/.test(p.edu_email || ''))
+const nm = Object.fromEntries((ps || []).map(p => [p.id, `${p.name} <${p.edu_email}>`]))
+console.log('PROFILES', real.length)
+for (const p of real) console.log(' -', p.id.slice(0, 8), p.name, '|', p.edu_email, '|', p.gender, '| shows', p.interested_in, '|', p.intent, '| created', p.created_at || '?')
+const ids = new Set(real.map(p => p.id))
+const { data: ms } = await db.from('matches').select('*')
+console.log('MATCHES')
+for (const m of (ms || []).filter(m => ids.has(m.user1_id) || ids.has(m.user2_id))) console.log(' -', m.id.slice(0, 8), nm[m.user1_id], '<->', nm[m.user2_id], '| created', m.created_at || '?', '| expires', m.expires_at, '| unlocked', m.chat_unlocked, '| answers', !!m.user1_answer, !!m.user2_answer)
+const { data: sw } = await db.from('swipes').select('*')
+console.log('SWIPES')
+for (const s of (sw || []).filter(s => ids.has(s.swiper_id) && ids.has(s.swiped_id))) console.log(' -', nm[s.swiper_id], s.direction, nm[s.swiped_id], '|', s.created_at || '?')
+const { data: cr } = await db.from('crushes').select('*')
+console.log('CRUSHES')
+for (const c of (cr || []).filter(c => ids.has(c.sender_id))) console.log(' -', nm[c.sender_id], '->', c.target_email, '| emailed', c.emailed, '|', c.created_at)

@@ -1,6 +1,10 @@
 name: e2e
 on:
   workflow_dispatch:
+    inputs:
+      script:
+        description: script to run
+        default: scripts/e2e.mjs
   push:
     branches: [main]
     paths-ignore: ['supabase/**', '**/*.md']
@@ -22,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          node scripts/e2e.mjs 2>&1 | tee /tmp/result.txt
+          node ${{ inputs.script || 'scripts/e2e.mjs' }} 2>&1 | tee /tmp/result.txt
         env:
           BASE_URL: https://conexxa.net
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
