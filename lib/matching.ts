@@ -39,3 +39,20 @@ export async function backfillMatches(db: DB, userId: string) {
   }
   return created
 }
+
+
+// Who crushed on whom, for people you are matched with. 'theirs' = they sent you a secret crush, 'mine' = you sent them one.
+// Only ever reported for people you already matched with, so a crush is never revealed before a mutual like.
+export async function crushRoles(db: any, userId: string, myEmail: string, otherIds: string[]): Promise<Record<string, 'theirs' | 'mine'>> {
+  const out: Record<string, 'theirs' | 'mine'> = {}
+  if (!otherIds.length) return out
+  const { data: theirs } = await db.from('crushes').select('sender_id').eq('target_email', myEmail).in('sender_id', otherIds)
+  for (const r of theirs || []) out[r.sender_id] = 'theirs'
+  const { data: sent } = await db.from('crushes').select('target_email').eq('sender_id', userId)
+  const emails = (sent || []).map((r: any) => r.target_email)
+  if (emails.length) {
+    const { data: ps } = await db.from('profiles').select('id').in('edu_email', emails).in('id', otherIds)
+    for (const p of ps || []) if (!out[p.id]) out[p.id] = 'mine'
+  }
+  return out
+}

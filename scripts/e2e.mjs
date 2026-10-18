@@ -221,6 +221,13 @@ async function main() {
   ok('crush is stored as a like', stored?.[0]?.direction === 'like', JSON.stringify(stored))
   const m3 = await post('/api/swipe', C.token, { swipedId: B.id, direction: 'like' })
   ok('liking the admirer back matches instantly', m3.j?.matched === true, JSON.stringify(m3))
+  ok('receiver is told it came from a crush', m3.j?.crush === 'theirs', JSON.stringify(m3.j))
+  const rolesB = await api('/api/crush?matches=1', B.token)
+  const rolesC = await api('/api/crush?matches=1', C.token)
+  ok('sender sees "your crush liked you back"', rolesB.j?.roles?.[C.id] === 'mine', JSON.stringify(rolesB.j))
+  ok('receiver sees "they had a crush on you"', rolesC.j?.roles?.[B.id] === 'theirs', JSON.stringify(rolesC.j))
+  const rolesA = await api('/api/crush?matches=1', A.token)
+  ok('a normal match is not labelled a crush', !Object.keys(rolesA.j?.roles || {}).length, JSON.stringify(rolesA.j))
   const list2 = await api('/api/crush', B.token)
   ok('sender now sees It is a match', list2.j?.crushes?.[0]?.status === 'matched', JSON.stringify(list2.j))
 

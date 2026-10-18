@@ -24,7 +24,7 @@ export default function Swipe() {
   const uid = useRef('')
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<any>(null)
-  const [match, setMatch] = useState<{ id: string; other: Profile } | null>(null)
+  const [match, setMatch] = useState<{ id: string; other: Profile; crush?: string | null } | null>(null)
   const [dx, setDx] = useState(0)
   const [fly, setFly] = useState<0 | 1 | -1>(0)
   const start = useRef<number | null>(null)
@@ -127,7 +127,7 @@ export default function Swipe() {
     const data = await req
     setFly(0); setDx(0)
     busy.current = false
-    if (data.matched) { setMatch({ id: data.id, other: profile }); return }
+    if (data.matched) { setMatch({ id: data.id, other: profile, crush: data.crush }); return }
     next(profile.id)
   }
 
@@ -160,7 +160,7 @@ export default function Swipe() {
   if (match) return (
     <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-8">
-        <h1 className="pop text-5xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>It's a match</h1>
+        <h1 className="pop text-5xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{match.crush === 'theirs' ? 'They had a crush on you' : match.crush === 'mine' ? 'Your crush liked you back' : "It's a match"}</h1>
         <div className="flex justify-center items-center">
           {[me, match.other].map((p: any, i) => (
             <div key={i} className={`w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}>
@@ -168,7 +168,7 @@ export default function Swipe() {
             </div>
           ))}
         </div>
-        <p className="text-mute">You and {match.other.name} liked each other. Answer one question together to open the chat. You have 48 hours.</p>
+        <p className="text-mute">{match.crush === 'theirs' ? `${match.other.name} sent you a secret crush, and you liked them back.` : `You and ${match.other.name} liked each other.`} Answer one question together to open the chat. You have 48 hours.</p>
         <div className="space-y-3">
           <button onClick={() => router.push(`/icebreaker/${match.id}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">Answer the question</button>
           <button onClick={() => { next(match.other.id); setMatch(null) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>

@@ -10,6 +10,7 @@ export default function Matches() {
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState('')
+  const [roles, setRoles] = useState<Record<string, string>>({})
   const [, tick] = useState(0)
 
   useEffect(() => {
@@ -20,6 +21,8 @@ export default function Matches() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         await fetch('/api/swipe', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        const rr = await fetch('/api/crush?matches=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        if (rr.ok) setRoles((await rr.json()).roles || {})
       } catch {}
 
       const { data: matchData } = await supabase.from('matches').select('*')
@@ -66,6 +69,9 @@ export default function Matches() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-lg truncate">{m.other?.name || 'Match'}</p>
+          {roles[m.user1_id === userId ? m.user2_id : m.user1_id] && (
+            <p className="text-xs font-semibold text-flame">{roles[m.user1_id === userId ? m.user2_id : m.user1_id] === 'theirs' ? 'They had a secret crush on you' : 'Your secret crush liked you back'}</p>
+          )}
           <p className={`text-sm ${unlocked ? 'text-ok' : answered ? 'text-mute' : 'text-ember'}`}>
             {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : theirAnswer(m) ? `They answered. Your turn · ${left(m)}` : `Answer one question · ${left(m)}`}
           </p>

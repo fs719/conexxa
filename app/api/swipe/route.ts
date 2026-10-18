@@ -1,6 +1,7 @@
 import { admin } from '@/lib/server'
 import { CASUAL, SERIOUS } from '@/lib/icebreakers'
-import { backfillMatches } from '@/lib/matching'
+import { backfillMatches, crushRoles } from '@/lib/matching'
+import { normEmail } from '@/lib/server'
 
 // Records a swipe and, on a mutual like, creates the match. Runs with the service
 // role so it can see the other person's swipe (row-level security hides it from the client).
@@ -33,7 +34,8 @@ export async function POST(req: Request) {
 
   const { data: existing } = await db.from('matches').select('id')
     .or(`and(user1_id.eq.${user.id},user2_id.eq.${swipedId}),and(user1_id.eq.${swipedId},user2_id.eq.${user.id})`).limit(1)
-  if (existing?.length) return Response.json({ matched: true, id: existing[0].id })
+  const roleOf = async () => (await crushRoles(db, user.id, normEmail(user.email), [swipedId]))[swipedId] || null
+  if (existing?.length) return Response.json({ matched: true, id: existing[0].id, crush: await roleOf() })
 
   const { data: me } = await db.from('profiles').select('intent').eq('id', user.id).maybeSingle()
   const pool = me?.intent === 'serious' ? SERIOUS : CASUAL
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     expires_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
   }).select('id').single()
   if (mErr) return Response.json({ error: mErr.message }, { status: 500 })
-  return Response.json({ matched: true, id: created.id })
+  return Response.json({ matched: true, id: created.id, crush: await roleOf() })
 }
 
 // Creates any missing matches for mutual likes involving the caller (catches older swipes).
