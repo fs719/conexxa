@@ -42,7 +42,7 @@ function ReportForm() {
   if (submitted) return (
     <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="text-center space-y-4">
-        <div className="text-6xl">✅</div>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5be3a6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="mx-auto" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M7.5 12.5l3 3 6-6.5" /></svg>
         <h1 className="text-2xl font-bold">Report Submitted</h1>
         <p className="text-mute">Thank you. We'll review this report shortly.</p>
         <button onClick={() => router.push('/swipe')}

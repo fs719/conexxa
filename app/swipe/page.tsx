@@ -127,7 +127,7 @@ export default function Swipe() {
     const data = await req
     setFly(0); setDx(0)
     busy.current = false
-    if (data.matched) { setMatch({ id: data.id, other: profile, crush: data.crush }); return }
+    if (data.matched) { try { navigator.vibrate?.([25, 50, 25]) } catch {} setMatch({ id: data.id, other: profile, crush: data.crush }); return }
     next(profile.id)
   }
 
@@ -157,25 +157,33 @@ export default function Swipe() {
 
   if (loading) return <main className="min-h-dvh bg-ink flex items-center justify-center text-mute">Finding people near you...</main>
 
-  if (match) return (
-    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-sm text-center space-y-8">
-        <h1 className="pop text-5xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{match.crush === 'theirs' ? 'They had a crush on you' : match.crush === 'mine' ? 'Your crush liked you back' : "It's a match"}</h1>
-        <div className="flex justify-center items-center">
+  if (match) {
+    const crush = !!match.crush
+    const tone = crush ? '91,227,166' : '255,77,109'
+    return (
+    <main className="relative overflow-hidden min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="match-glow pointer-events-none absolute inset-0" style={{ background: `radial-gradient(circle at 50% 38%, rgba(${tone},.24), transparent 62%)` }} />
+      <div className="relative w-full max-w-sm text-center space-y-8">
+        <h1 className="pop text-5xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: crush ? 'linear-gradient(135deg,#5be3a6,#b4f7dc)' : 'linear-gradient(135deg,#ff4d6d,#ff8a5b)' }}>{match.crush === 'theirs' ? 'They had a crush on you' : match.crush === 'mine' ? 'Your crush liked you back' : "It's a match"}</h1>
+        <div className="relative flex justify-center items-center">
+          <span className="ring-out absolute rounded-full border-2" style={{ width: 128, height: 128, borderColor: `rgb(${tone})` }} />
+          <span className="ring-out absolute rounded-full border" style={{ width: 128, height: 128, borderColor: `rgb(${tone})`, animationDelay: '.25s' }} />
           {[me, match.other].map((p: any, i) => (
-            <div key={i} className={`w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}>
+            <div key={i} className={`relative w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}
+              style={{ boxShadow: `0 0 0 2px rgba(${tone},.7), 0 0 30px rgba(${tone},.35)` }}>
               {p?.photo_url ? <img src={p.photo_url} alt="" className={`w-full h-full object-cover ${i && p.intent !== 'serious' ? 'unblur' : ''}`} /> : (p?.name || '?')[0].toUpperCase()}
             </div>
           ))}
         </div>
         <p className="text-mute">{match.crush === 'theirs' ? `${match.other.name} sent you a secret crush, and you liked them back.` : `You and ${match.other.name} liked each other.`} Answer one question together to open the chat. You have 48 hours.</p>
         <div className="space-y-3">
-          <button onClick={() => router.push(`/icebreaker/${match.id}`)} className="w-full btn-flame py-4 rounded-full font-semibold text-lg">Answer the question</button>
+          <button onClick={() => router.push(`/icebreaker/${match.id}`)} className={`w-full py-4 rounded-full font-semibold text-lg ${crush ? 'btn-crush' : 'btn-flame'}`}>Answer the question</button>
           <button onClick={() => { next(match.other.id); setMatch(null) }} className="w-full text-mute hover:text-white py-2">Keep swiping</button>
         </div>
       </div>
     </main>
-  )
+    )
+  }
 
   const profile = profiles[0]
   const mystery = profile?.intent !== 'serious'
@@ -184,13 +192,13 @@ export default function Swipe() {
     <main className="min-h-dvh bg-ink text-white pb-24">
       <div className="max-w-md mx-auto px-4 pt-4"><Switch show={show} choose={choose} /></div>
       {admirers.some(id => !seen.includes(id)) && (
-        <p className="max-w-md mx-auto mt-3 mx-4 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line">Someone here has a crush on you. Switch to Both to find out who.</p>
+        <p className="max-w-md mx-auto mt-3 mx-4 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. Switch to Both to find out who.</p>
       )}
       <div className="max-w-md mx-auto px-6 pt-24 text-center space-y-5">
         <h1 className="text-3xl font-bold">You're all caught up</h1>
         <p className="text-mute">New people join every day. Invite a friend and you'll both see more profiles.</p>
         <InviteButton />
-        <div><Link href="/crush" className="inline-block mt-1 px-8 py-3 rounded-full font-semibold bg-panel border border-line hover:border-white/40">Send a secret crush</Link></div>
+        <div><Link href="/crush" className="crush-edge inline-block mt-1 px-8 py-3 rounded-full font-semibold bg-panel border border-line text-crush">Send a secret crush</Link></div>
       </div>
       <BottomNav />
     </main>
@@ -205,12 +213,12 @@ export default function Swipe() {
         <div className="flex items-center justify-between mb-3 px-1">
           <h1 className="text-2xl font-bold">Conexxa</h1>
           <div className="flex items-center gap-4">
-            <Link href="/crush" className="text-sm font-medium px-3 py-1 rounded-full bg-panel border border-line hover:border-white/40">Secret crush</Link>
+            <Link href="/crush" className="crush-edge text-sm font-medium px-3 py-1 rounded-full bg-panel border border-line text-crush">Secret crush</Link>
             <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
           </div>
         </div>
         {admirers.some(id => !seen.includes(id)) && (
-          <p className="mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line">Someone here has a crush on you. Keep swiping to find out who.</p>
+          <p className="mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. Keep swiping to find out who.</p>
         )}
         <div className="mb-3"><Switch show={show} choose={choose} /></div>
 

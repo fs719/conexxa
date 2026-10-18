@@ -9,6 +9,7 @@
   --color-flame: #ff4d6d;
   --color-ember: #ff8a5b;
   --color-ok: #5be3a6;
+  --color-crush: #5be3a6;
   --font-sans: var(--font-geist-sans);
   --font-display: var(--font-bricolage);
   --font-mono: var(--font-geist-mono);
@@ -41,7 +42,28 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 @keyframes unblur { from { filter: blur(28px) } to { filter: blur(0) } }
 .unblur { animation: unblur 1.1s ease-out .3s both; }
 
+/* Secret crush identity: a thin mint edge. Only on crush entry points and crush matches, never on a Discover card. */
+.crush-edge {
+  border-color: rgba(91,227,166,.45) !important;
+  box-shadow: 0 0 0 1px rgba(91,227,166,.10), 0 0 22px -8px rgba(91,227,166,.45);
+}
+.btn-crush {
+  background: linear-gradient(135deg, #5be3a6 0%, #3fd0c4 100%);
+  color: #06120d; font-weight: 600;
+  transition: transform .12s ease, filter .12s ease;
+}
+.btn-crush:hover { filter: brightness(1.05); }
+.btn-crush:active { transform: scale(0.98); }
+.btn-crush:disabled { opacity: .5; filter: none; transform: none; }
+
+/* Match moment: a soft glow that fades in, and rings that ripple out from the two photos. */
+@keyframes glowin { from { opacity: 0 } to { opacity: 1 } }
+.match-glow { animation: glowin .9s ease-out both; }
+@keyframes ringout { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(2.1); opacity: 0 } }
+.ring-out { animation: ringout 1.5s ease-out 2 both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .match-glow, .ring-out { animation: none; }
   .unblur { animation: none; }
   .pop { animation: none; }
   .btn-flame { transition: none; }

@@ -22,7 +22,10 @@ export default function PhotoPicker({ file, url, onFile, onRemove, size = 128 }:
         className={`rounded-full overflow-hidden flex items-center justify-center transition ${src ? 'border border-line' : 'border-2 border-dashed border-white/30 hover:border-white/60 bg-panel'}`}>
         {src
           ? <img src={src} alt="" className="w-full h-full object-cover" />
-          : <span className="flex flex-col items-center text-mute text-sm gap-1"><span className="text-3xl">📷</span>Add photo</span>}
+          : <span className="flex flex-col items-center text-mute text-sm gap-2">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Add photo
+          </span>}
       </button>
       {src && (
         <div className="flex gap-5 text-sm">

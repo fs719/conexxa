@@ -63,14 +63,14 @@ export default function Matches() {
     const answered = !!myAnswer(m)
     const go = () => router.push(unlocked ? `/chat/${m.id}` : `/icebreaker/${m.id}`)
     return (
-      <button onClick={go} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-panel border border-line text-left hover:border-white/20 transition">
+      <button onClick={go} className={`w-full flex items-center gap-4 p-4 rounded-2xl bg-panel border border-line text-left hover:border-white/20 transition ${roles[m.user1_id === userId ? m.user2_id : m.user1_id] ? 'crush-edge' : ''}`}>
         <div className="w-14 h-14 rounded-full overflow-hidden bg-raised flex items-center justify-center text-xl font-bold shrink-0">
           {m.other?.photo_url ? <img src={m.other.photo_url} alt="" className="w-full h-full object-cover" /> : (m.other?.name || '?')[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-lg truncate">{m.other?.name || 'Match'}</p>
           {roles[m.user1_id === userId ? m.user2_id : m.user1_id] && (
-            <p className="text-xs font-semibold text-flame">{roles[m.user1_id === userId ? m.user2_id : m.user1_id] === 'theirs' ? 'They had a secret crush on you' : 'Your secret crush liked you back'}</p>
+            <p className="text-xs font-semibold text-crush">{roles[m.user1_id === userId ? m.user2_id : m.user1_id] === 'theirs' ? 'They had a secret crush on you' : 'Your secret crush liked you back'}</p>
           )}
           <p className={`text-sm ${unlocked ? 'text-ok' : answered ? 'text-mute' : 'text-ember'}`}>
             {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : theirAnswer(m) ? `They answered. Your turn · ${left(m)}` : `Answer one question · ${left(m)}`}
