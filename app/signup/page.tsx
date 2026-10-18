@@ -1,4 +1,5 @@
 'use client'
+import PhotoPicker from '@/components/PhotoPicker'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -87,17 +88,19 @@ export default function SignUp() {
       }
     }
 
-    const { error } = await supabase.from('profiles').upsert({
-      id: user.id,
+    const row = {
       name: form.name,
       gender: form.gender,
       interested_in: form.interested_in,
       intent: form.intent,
       bio: form.bio,
-      edu_email: form.email.trim().toLowerCase(),
       age: age,
-      photo_url,
-    })
+      ...(photo_url ? { photo_url } : {}),
+    }
+    const { data: existing } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
+    const { error } = existing
+      ? await supabase.from('profiles').update(row).eq('id', user.id)
+      : await supabase.from('profiles').insert({ id: user.id, ...row, edu_email: form.email.trim().toLowerCase() })
 
     if (error) {
       setError('Failed to save profile. Please try again.')
@@ -246,25 +249,12 @@ export default function SignUp() {
         {step === 5 && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Make Your Profile Shine</h1>
-            <p className="text-mute">Optional — but it helps!</p>
+            <p className="text-mute">Optional. A photo gets you far more matches.</p>
             <textarea placeholder="Tell us about yourself in one sentence..." value={form.bio}
               onChange={e => update('bio', e.target.value)} maxLength={200}
               className="w-full bg-panel border border-line rounded-xl p-3 text-white h-32 resize-none"
             />
-            <div className="space-y-2">
-              <p className="text-mute text-sm">Profile photo (optional)</p>
-              <input type="file" accept="image/*"
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  if (file) update('photo', file as any)
-                }}
-                className="w-full text-mute text-sm"
-              />
-              {(form as any).photo && (
-                <img src={URL.createObjectURL((form as any).photo)} 
-                  className="w-24 h-24 rounded-full object-cover" />
-              )}
-            </div>
+            <PhotoPicker file={(form as any).photo} onFile={f => update('photo', f as any)} onRemove={() => update('photo', null as any)} />
             <button onClick={() => setStep(6)}
               className="w-full btn-flame py-3 rounded-full font-semibold transition">
               Continue

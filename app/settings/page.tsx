@@ -1,4 +1,5 @@
 'use client'
+import PhotoPicker from '@/components/PhotoPicker'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -36,7 +37,7 @@ export default function Settings() {
       photo_url = `${supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
     }
     const { error } = await supabase.from('profiles').update({
-      name: form.name.trim(), bio: form.bio, intent: form.intent, interested_in: form.interested_in, photo_url,
+      name: form.name.trim(), bio: form.bio, intent: form.intent, interested_in: form.interested_in, photo_url: photo_url || null,
     }).eq('id', userId)
     setSaving(false)
     if (error) { setMsg('Could not save. Try again.'); return }
@@ -72,13 +73,7 @@ export default function Settings() {
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Profile</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 bg-raised rounded-full flex items-center justify-center text-3xl overflow-hidden">
-            {photo ? <img src={URL.createObjectURL(photo)} className="w-full h-full object-cover" />
-              : form.photo_url ? <img src={form.photo_url} className="w-full h-full object-cover" /> : '👤'}
-          </div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setPhoto(e.target.files?.[0] || null)} className="text-mute text-sm" />
-        </div>
+        <PhotoPicker file={photo} url={form.photo_url} onFile={setPhoto} onRemove={() => { setPhoto(null); setForm(f => ({ ...f, photo_url: '' })) }} />
         <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Name"
           className="w-full bg-panel border border-line rounded-xl p-3 text-white" />
         <textarea value={form.bio} maxLength={200} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder="Bio"

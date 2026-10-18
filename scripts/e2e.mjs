@@ -112,6 +112,29 @@ async function main() {
     const r2 = await anon2.from('profiles').select('id').limit(1)
     console.log('INFO anon profiles read:', r2.error ? r2.error.message : 'rows ' + r2.data?.length)
   }
+  // Signup profile save, done the way the real signup page does it (as the signed-in user, no service key)
+  {
+    const email = `e2e-${stamp}-signup@e2e-test.edu`, password = `E2e!${stamp}signup`
+    const { data: cu, error: ce } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
+    if (ce) throw new Error('createUser signup: ' + ce.message)
+    made.push(cu.user.id)
+    const cl = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
+    await cl.auth.signInWithPassword({ email, password })
+    const row = { name: 'E2E signup', gender: 'Male', interested_in: 'e2e-hidden', intent: 'casual', bio: 'x', age: 21 }
+    const { data: ex } = await cl.from('profiles').select('id').eq('id', cu.user.id).maybeSingle()
+    const ins = await cl.from('profiles').insert({ id: cu.user.id, ...row, edu_email: 'liar@harvard.edu' })
+    ok('signup can create the profile', !ins.error && !ex, ins.error?.message || '')
+    const { data: made1 } = await admin.from('profiles').select('edu_email').eq('id', cu.user.id).single()
+    ok('signup email is forced to the verified one', made1?.edu_email === email, `now ${made1?.edu_email}`)
+    const upd = await cl.from('profiles').update({ ...row, name: 'E2E signup 2', photo_url: 'https://example.com/a.jpg' }).eq('id', cu.user.id)
+    ok('profile and photo can be updated', !upd.error, upd.error?.message || '')
+    const rm = await cl.from('profiles').update({ photo_url: null }).eq('id', cu.user.id)
+    const { data: after } = await admin.from('profiles').select('photo_url').eq('id', cu.user.id).single()
+    ok('photo can be removed', !rm.error && after?.photo_url === null, rm.error?.message || '')
+    const own = await cl.from('profiles').select('name,photo_url,intent,gender,interested_in,school_domain').eq('id', cu.user.id).single()
+    ok('own profile readable with the app columns', !own.error && own.data?.school_domain === 'e2e-test.edu', own.error?.message || '')
+  }
+
   // Data privacy and tamper checks, done the way a curious or hostile user could (straight at the database)
   {
     const nobody = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
