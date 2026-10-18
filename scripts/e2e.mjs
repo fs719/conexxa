@@ -195,6 +195,7 @@ async function main() {
   const va = await api(`/api/contact?matchId=${matchId}`, A.token)
   const vb = await api(`/api/contact?matchId=${matchId}`, B.token)
   ok('A sees B phone, normalized', va.j?.theirs?.value === '+12025550123', JSON.stringify(va.j))
+  { const sw = await api('/api/swaps', A.token); ok('swapped list shows the match once both opted in', sw.j?.swapped?.includes(B.id), JSON.stringify(sw.j)) }
   ok('B sees A instagram', vb.j?.theirs?.value === 'e2e.user', JSON.stringify(vb.j))
   ok('cannot take back after both opted in', (await api('/api/contact', A.token, { method: 'DELETE', body: JSON.stringify({ matchId }) })).status === 409)
 
@@ -228,6 +229,11 @@ async function main() {
   ok('receiver sees "they had a crush on you"', rolesC.j?.roles?.[B.id] === 'theirs', JSON.stringify(rolesC.j))
   const rolesA = await api('/api/crush?matches=1', A.token)
   ok('a normal match is not labelled a crush', !Object.keys(rolesA.j?.roles || {}).length, JSON.stringify(rolesA.j))
+  await post('/api/contact', B.token, { matchId: m3.j.id, kind: 'instagram', value: 'solo.opt' })
+  const soloC = await api('/api/swaps', C.token), soloB = await api('/api/swaps', B.token)
+  const cView = await api(`/api/contact?matchId=${m3.j.id}`, C.token)
+  ok('one-sided opt-in is not reported to the other person', !soloC.j?.swapped?.includes(B.id) && !cView.j?.theirs && !cView.j?.mine, JSON.stringify({ soloC: soloC.j, cView: cView.j }))
+  ok('one-sided opt-in is not a full swap for the sender either', !soloB.j?.swapped?.includes(C.id), JSON.stringify(soloB.j))
   const list2 = await api('/api/crush', B.token)
   ok('sender now sees It is a match', list2.j?.crushes?.[0]?.status === 'matched', JSON.stringify(list2.j))
 

@@ -11,6 +11,7 @@ export default function Matches() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState('')
   const [roles, setRoles] = useState<Record<string, string>>({})
+  const [swapped, setSwapped] = useState<string[]>([])
   const [, tick] = useState(0)
 
   useEffect(() => {
@@ -23,6 +24,8 @@ export default function Matches() {
         await fetch('/api/swipe', { headers: { Authorization: `Bearer ${session?.access_token}` } })
         const rr = await fetch('/api/crush?matches=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
         if (rr.ok) setRoles((await rr.json()).roles || {})
+        const sr = await fetch('/api/swaps', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        if (sr.ok) setSwapped((await sr.json()).swapped || [])
       } catch {}
 
       const { data: matchData } = await supabase.from('matches').select('*')
@@ -73,7 +76,7 @@ export default function Matches() {
             <p className="text-xs font-semibold text-crush">{roles[m.user1_id === userId ? m.user2_id : m.user1_id] === 'theirs' ? 'They had a secret crush on you' : 'Your secret crush liked you back'}</p>
           )}
           <p className={`text-sm ${unlocked ? 'text-ok' : answered ? 'text-mute' : 'text-ember'}`}>
-            {unlocked ? 'Chat is open' : answered ? `Waiting for them · ${left(m)}` : theirAnswer(m) ? `They answered. Your turn · ${left(m)}` : `Answer one question · ${left(m)}`}
+            {unlocked ? (swapped.includes(m.user1_id === userId ? m.user2_id : m.user1_id) ? 'Swapped. Chat is open' : 'Chat is open') : answered ? `Waiting for them · ${left(m)}` : theirAnswer(m) ? `They answered. Your turn · ${left(m)}` : `Answer one question · ${left(m)}`}
           </p>
         </div>
         <span className="text-mute text-xl">›</span>

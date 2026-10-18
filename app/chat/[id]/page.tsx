@@ -25,8 +25,14 @@ export default function Chat() {
   const [turn, setTurn] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [crush, setCrush] = useState<string | null>(null)
+  const [swap, setSwap] = useState<{ mine: any; theirs: any } | null>(null)
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
+
+  const loadSwap = async () => {
+    const r = await fetch(`/api/contact?matchId=${id}`, { headers: headers() })
+    if (r.ok) setSwap(await r.json())
+  }
 
   const load = async () => {
     const r = await fetch(`/api/messages?matchId=${id}`, { headers: headers() })
@@ -61,7 +67,8 @@ export default function Chat() {
           setScore(x.both ? x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length : null)
         }
       }
-      roundCheck(); timer2 = setInterval(roundCheck, 10000)
+      roundCheck(); timer2 = setInterval(() => { roundCheck(); loadSwap() }, 10000)
+      loadSwap()
       setLoading(false)
       timer = setInterval(load, 2500)
     })()
@@ -111,22 +118,30 @@ export default function Chat() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-bold text-lg truncate leading-tight">{other?.name || 'Match'}</h1>
-          {crush && <p className="text-xs font-semibold text-crush leading-tight">{crush === 'theirs' ? 'Had a secret crush on you' : 'Your secret crush'}</p>}
+          {(crush || swap?.theirs) && (
+            <p className="text-xs font-semibold leading-tight">
+              {crush && <span className="text-crush">{crush === 'theirs' ? 'Had a secret crush on you' : 'Your secret crush'}</span>}
+              {crush && swap?.theirs && <span className="text-mute"> · </span>}
+              {swap?.theirs && <span className="text-ok">Swapped</span>}
+            </p>
+          )}
         </div>
         <button onClick={leave} className="text-sm text-mute hover:text-white">Not feeling it</button>
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 
       <div className="px-4 py-2 border-b border-line flex gap-2">
-        {score === null ? (
+        {swap?.theirs ? (
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">Swapped. View their {swap.theirs.kind === 'phone' ? 'number' : swap.theirs.kind === 'snapchat' ? 'Snapchat' : 'Instagram'}</button>
+        ) : score === null ? (
           <>
             <Link href={`/rounds/${id}`} className="relative flex-1 block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
               {turn ? `${other?.name || 'They'} did the vibe check. Your turn` : 'Vibe check: 3 quick picks'}
             </Link>
-            <button onClick={() => setSheet(true)} className="px-4 py-2.5 rounded-full border border-line hover:border-white/30 text-sm font-semibold">Swap</button>
+            <button onClick={() => setSheet(true)} className={`px-4 py-2.5 rounded-full border text-sm font-semibold ${swap?.mine ? 'border-white/30 text-mute' : 'border-line hover:border-white/30'}`}>{swap?.mine ? "You're in" : 'Swap'}</button>
           </>
         ) : (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUNDS[0].qs.length} matched. Swap Instagram</button>
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUNDS[0].qs.length} matched. {swap?.mine ? "You're in, waiting for them" : 'Swap Instagram'}</button>
         )}
       </div>
 
@@ -152,7 +167,7 @@ export default function Chat() {
         <div ref={bottom} />
       </div>
 
-      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} onClose={() => setSheet(false)} />}
+      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} onClose={() => { setSheet(false); loadSwap() }} />}
 
       <form onSubmit={e => { e.preventDefault(); send() }} className="flex gap-2 px-4 py-3 border-t border-line" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={1000} autoComplete="off"
