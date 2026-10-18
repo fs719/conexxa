@@ -229,7 +229,15 @@ async function main() {
   ok('receiver sees "they had a crush on you"', rolesC.j?.roles?.[B.id] === 'theirs', JSON.stringify(rolesC.j))
   const rolesA = await api('/api/crush?matches=1', A.token)
   ok('a normal match is not labelled a crush', !Object.keys(rolesA.j?.roles || {}).length, JSON.stringify(rolesA.j))
-  await post('/api/contact', B.token, { matchId: m3.j.id, kind: 'instagram', value: 'solo.opt' })
+  { // unlock the crush match chat so the contact swap can be tested
+    const { data: cm } = await admin.from('matches').select('icebreaker_prompt').eq('id', m3.j.id).single()
+    const co = optionsFor(cm?.icebreaker_prompt)
+    await post('/api/icebreaker', B.token, { matchId: m3.j.id, answer: co[0] })
+    const un = await post('/api/icebreaker', C.token, { matchId: m3.j.id, answer: co[1] })
+    ok('crush match chat unlocks', un.j?.unlocked === true, JSON.stringify(un))
+  }
+  const solo = await post('/api/contact', B.token, { matchId: m3.j.id, kind: 'instagram', value: 'solo.opt' })
+  ok('one person can opt in alone', solo.status === 200, JSON.stringify(solo))
   const soloC = await api('/api/swaps', C.token), soloB = await api('/api/swaps', B.token)
   const cView = await api(`/api/contact?matchId=${m3.j.id}`, C.token)
   ok('one-sided opt-in gives the other person a nudge only, no contact details', !soloC.j?.swapped?.includes(B.id) && !cView.j?.theirs && !cView.j?.mine && cView.j?.signal === true && soloC.j?.asked?.includes(m3.j.id) && !JSON.stringify(cView.j).includes('solo.opt'), JSON.stringify({ soloC: soloC.j, cView: cView.j }))
