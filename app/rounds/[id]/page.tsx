@@ -2,14 +2,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
-import { ROUNDS } from '@/lib/rounds'
+import { ROUNDS, pickQuestions } from '@/lib/rounds'
 
-const round = ROUNDS[0]
+const base = ROUNDS[0]
 type Status = { iDone: boolean; theyDone: boolean; both: { mine: number[]; theirs: number[] } | null }
 
 export default function VibeCheck() {
   const router = useRouter()
   const { id } = useParams()
+  const round = { ...base, qs: pickQuestions(String(id)) }
   const [token, setToken] = useState('')
   const [name, setName] = useState('them')
   const [st, setSt] = useState<Status | null>(null)
@@ -119,6 +120,16 @@ export default function VibeCheck() {
             </div>
           ))}
         </div>
+        {(() => {
+          const d = round.qs.findIndex((_, i) => st.both!.mine[i] !== st.both!.theirs[i])
+          return (
+            <div className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm">
+              {d >= 0
+                ? <p><span className="text-mute">You said</span> {round.qs[d].options[st.both!.mine[d]]}<span className="text-mute">. {name} said</span> {round.qs[d].options[st.both!.theirs[d]]}<span className="text-mute">. Ask {name} why.</span></p>
+                : <p className="text-mute">You answered everything the same. Say something about it.</p>}
+            </div>
+          )
+        })()}
         <button onClick={() => router.push(`/chat/${id}?swap=1`)} className="w-full btn-flame py-4 rounded-full font-bold text-lg">Swap Instagram</button>
         <button onClick={() => router.push(`/chat/${id}`)} className="w-full text-mute hover:text-white py-2">Back to chat</button>
       </div>

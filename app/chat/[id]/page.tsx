@@ -5,7 +5,7 @@ import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import ContactSheet from '@/components/ContactSheet'
-import { ROUNDS } from '@/lib/rounds'
+import { ROUND_SIZE } from '@/lib/rounds'
 
 type Msg = { id: string; sender_id: string; content: string; created_at: string; pending?: boolean; failed?: boolean }
 
@@ -156,7 +156,7 @@ export default function Chat() {
             <button onClick={() => setSheet(true)} className={`px-4 py-2.5 rounded-full border text-sm font-semibold ${swap?.mine ? 'border-white/30 text-mute' : 'border-line hover:border-white/30'}`}>{swap?.mine ? "You're in" : 'Swap'}</button>
           </>
         ) : (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUNDS[0].qs.length} matched. {swap?.mine ? "You're in, waiting for them" : 'Swap Instagram'}</button>
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUND_SIZE} matched. {swap?.mine ? "You're in, waiting for them" : 'Swap Instagram'}</button>
         )}
       </div>
 

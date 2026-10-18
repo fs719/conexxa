@@ -1,5 +1,5 @@
 import { authedMatch } from '@/lib/matchAuth'
-import { ROUNDS } from '@/lib/rounds'
+import { ROUNDS, pickQuestions } from '@/lib/rounds'
 
 async function status(a: any, matchId: string) {
   const { data } = await a.db.from('match_rounds').select('*').eq('match_id', matchId)
@@ -38,7 +38,8 @@ export async function POST(req: Request) {
   const a = await authedMatch(req, matchId)
   if (a.error) return a.error
 
-  const round = ROUNDS.find(r => r.level === level)
+  const base = ROUNDS.find(r => r.level === level)
+  const round = base && { ...base, qs: pickQuestions(matchId) }
   if (!round || !Array.isArray(answers) || answers.length !== round.qs.length ||
       !answers.every((x: any, i: number) => Number.isInteger(x) && x >= 0 && x < round.qs[i].options.length))
     return Response.json({ error: 'Invalid answers.' }, { status: 400 })
