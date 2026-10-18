@@ -14,6 +14,7 @@ export default function Icebreaker() {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [crush, setCrush] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -26,6 +27,9 @@ export default function Icebreaker() {
       const mine = m.user1_id === user.id ? m.user1_answer : m.user2_answer
       if (mine) setSubmitted(true)
       setMatch(m)
+      const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/crush?matches=1', { headers: { Authorization: `Bearer ${session?.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => setCrush(d?.roles?.[otherId] || null)).catch(() => {})
       setLoading(false)
     }
     init()
@@ -73,6 +77,7 @@ export default function Icebreaker() {
       <div className="w-full max-w-md mx-auto space-y-6">
         <button onClick={() => router.push('/matches')} className="text-mute hover:text-white">← Back</button>
         <div className="space-y-2">
+          {crush && <p className="inline-block crush-edge border border-line rounded-full px-3 py-1 text-xs font-semibold text-crush">{crush === 'theirs' ? 'They had a secret crush on you' : 'Your secret crush liked you back'}</p>}
           <p className="text-mute text-sm">Pick one. Chat opens when you both have.</p>
           <h1 className="text-3xl font-bold leading-tight">{match?.icebreaker_prompt}</h1>
         </div>

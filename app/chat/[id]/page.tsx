@@ -24,6 +24,7 @@ export default function Chat() {
   const [sheet, setSheet] = useState(false)
   const [turn, setTurn] = useState(false)
   const [score, setScore] = useState<number | null>(null)
+  const [crush, setCrush] = useState<string | null>(null)
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
 
@@ -49,6 +50,7 @@ export default function Chat() {
       const otherId = m.user1_id === uid ? m.user2_id : m.user1_id
       const { data: p } = await supabase.from('profiles').select('name, photo_url').eq('id', otherId).single()
       setOther(p)
+      fetch('/api/crush?matches=1', { headers: headers() }).then(r => r.ok ? r.json() : null).then(d => setCrush(d?.roles?.[otherId] || null)).catch(() => {})
       await load()
       if (new URLSearchParams(window.location.search).get('swap')) setSheet(true)
       const roundCheck = async () => {
@@ -102,12 +104,15 @@ export default function Chat() {
 
   return (
     <main className="h-dvh bg-ink text-white flex flex-col max-w-md mx-auto w-full">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-line">
+      <header className={`flex items-center gap-3 px-4 py-3 border-b ${crush ? 'border-[rgba(91,227,166,.35)]' : 'border-line'}`}>
         <button onClick={() => router.push('/matches')} aria-label="Back" className="text-mute hover:text-white text-xl pr-1">←</button>
-        <div className="w-10 h-10 rounded-full overflow-hidden bg-raised flex items-center justify-center font-bold">
+        <div className={`w-10 h-10 rounded-full overflow-hidden bg-raised flex items-center justify-center font-bold ${crush ? 'ring-2 ring-[#5be3a6]/70' : ''}`}>
           {other?.photo_url ? <img src={other.photo_url} alt="" className="w-full h-full object-cover" /> : (other?.name || '?')[0].toUpperCase()}
         </div>
-        <h1 className="font-bold text-lg flex-1 truncate">{other?.name || 'Match'}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-bold text-lg truncate leading-tight">{other?.name || 'Match'}</h1>
+          {crush && <p className="text-xs font-semibold text-crush leading-tight">{crush === 'theirs' ? 'Had a secret crush on you' : 'Your secret crush'}</p>}
+        </div>
         <button onClick={leave} className="text-sm text-mute hover:text-white">Not feeling it</button>
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
