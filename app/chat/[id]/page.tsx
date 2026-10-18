@@ -25,13 +25,22 @@ export default function Chat() {
   const [turn, setTurn] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [crush, setCrush] = useState<string | null>(null)
-  const [swap, setSwap] = useState<{ mine: any; theirs: any } | null>(null)
+  const [swap, setSwap] = useState<{ mine: any; theirs: any; signal?: boolean } | null>(null)
+  const [hushed, setHushed] = useState(false)
+  const hadTheirs = useRef(false)
+  const swapSeen = useRef(false)
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
 
-  const loadSwap = async () => {
+  const loadSwap = async (quiet = false) => {
     const r = await fetch(`/api/contact?matchId=${id}`, { headers: headers() })
-    if (r.ok) setSwap(await r.json())
+    if (!r.ok) return
+    const d = await r.json()
+    setSwap(d)
+    // The moment both have said yes: open the sheet and buzz once.
+    if (!quiet && d.theirs && !hadTheirs.current && swapSeen.current) { setSheet(true); try { navigator.vibrate?.([30, 60, 30]) } catch {} }
+    hadTheirs.current = !!d.theirs
+    swapSeen.current = true
   }
 
   const load = async () => {
@@ -67,7 +76,8 @@ export default function Chat() {
           setScore(x.both ? x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length : null)
         }
       }
-      roundCheck(); timer2 = setInterval(() => { roundCheck(); loadSwap() }, 10000)
+      roundCheck(); timer2 = setInterval(() => { roundCheck(); loadSwap() }, 5000)
+      try { setHushed(localStorage.getItem(`conexxa_hush_${id}`) === '1') } catch {}
       loadSwap()
       setLoading(false)
       timer = setInterval(load, 2500)
@@ -132,7 +142,12 @@ export default function Chat() {
 
       <div className="px-4 py-2 border-b border-line flex gap-2">
         {swap?.theirs ? (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">Swapped. View their {swap.theirs.kind === 'phone' ? 'number' : swap.theirs.kind === 'snapchat' ? 'Snapchat' : 'Instagram'}</button>
+          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-crush text-sm">Swapped. View their {swap.theirs.kind === 'phone' ? 'number' : swap.theirs.kind === 'snapchat' ? 'Snapchat' : 'Instagram'}</button>
+        ) : swap?.signal && !hushed ? (
+          <>
+            <button onClick={() => setSheet(true)} className="flex-1 py-2.5 rounded-full btn-crush text-sm animate-pulse">{other?.name || 'They'} wants to swap</button>
+            <button onClick={() => { try { localStorage.setItem(`conexxa_hush_${id}`, '1') } catch {} setHushed(true) }} className="px-3 text-sm text-mute hover:text-white">Not now</button>
+          </>
         ) : score === null ? (
           <>
             <Link href={`/rounds/${id}`} className="relative flex-1 block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
@@ -167,7 +182,7 @@ export default function Chat() {
         <div ref={bottom} />
       </div>
 
-      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} onClose={() => { setSheet(false); loadSwap() }} />}
+      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} asked={!!swap?.signal} onClose={() => { setSheet(false); loadSwap(true) }} />}
 
       <form onSubmit={e => { e.preventDefault(); send() }} className="flex gap-2 px-4 py-3 border-t border-line" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={1000} autoComplete="off"

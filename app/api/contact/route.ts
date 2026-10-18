@@ -23,6 +23,8 @@ async function view(a: any, matchId: string) {
     mine: myValue ? { kind: row[`${a.me}_kind`], value: myValue } : null,
     // their contact is only returned when both people opted in
     theirs: myValue && theirValue ? { kind: row[`${a.them}_kind`], value: theirValue } : null,
+    // They said yes and you have not: only the fact is shared (a nudge), never their handle or number.
+    signal: !!(theirValue && !myValue),
   })
 }
 

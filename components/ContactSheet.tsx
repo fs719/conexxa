@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 type Contact = { kind: 'phone' | 'instagram' | 'snapchat'; value: string }
 const LABEL = { phone: 'Phone number', instagram: 'Instagram', snapchat: 'Snapchat' }
 
-export default function ContactSheet({ matchId, token, name, onClose }: { matchId: string; token: string; name: string; onClose: () => void }) {
+export default function ContactSheet({ matchId, token, name, asked, onClose }: { matchId: string; token: string; name: string; asked?: boolean; onClose: () => void }) {
   const [mine, setMine] = useState<Contact | null>(null)
   const [theirs, setTheirs] = useState<Contact | null>(null)
   const [kind, setKind] = useState<Contact['kind']>('instagram')
@@ -41,11 +41,11 @@ export default function ContactSheet({ matchId, token, name, onClose }: { matchI
 
   return (
     <div className="fixed inset-0 z-30 bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} className="w-full max-w-md bg-panel border border-line rounded-t-3xl sm:rounded-3xl p-6 space-y-5" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md bg-panel border border-line rounded-t-3xl sm:rounded-3xl p-6 space-y-5 ${theirs && mine ? "crush-edge" : ""}`} style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
         {theirs && mine ? (
           <>
-            <h2 className="text-2xl font-bold">You both said yes</h2>
-            <p className="text-mute">{name} shared this with you:</p>
+            <h2 className="text-2xl font-bold bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg,#5be3a6,#b4f7dc)' }}>You both said yes</h2>
+            <p className="text-mute">{name} shared this with you. Take it offline. Happy connecting.</p>
             <div className="rounded-2xl bg-raised p-4">
               <p className="text-sm text-mute">{LABEL[theirs.kind]}</p>
               <p className="text-2xl font-semibold break-all">{pretty(theirs)}</p>
@@ -59,13 +59,13 @@ export default function ContactSheet({ matchId, token, name, onClose }: { matchI
         ) : mine ? (
           <>
             <h2 className="text-2xl font-bold">You're in</h2>
-            <p className="text-mute">{name} sees nothing unless they say yes too. If they do, you both get each other's {LABEL[mine.kind].toLowerCase()} at the same moment.</p>
+            <p className="text-mute">{name} gets a nudge that you want to swap. They never see your {LABEL[mine.kind].toLowerCase()} unless they say yes too. If they do, you both get each other's at the same moment.</p>
             <button onClick={withdraw} className="w-full text-mute hover:text-white py-2">Change my mind</button>
           </>
         ) : (
           <>
             <h2 className="text-2xl font-bold">Swap Instagram?</h2>
-            <p className="text-mute">{name} only sees yours if they swap too. If they don't, nothing happens and nobody knows.</p>
+            <p className="text-mute">{asked ? `${name} wants to swap. They only get yours if you say yes too, and you see theirs at the same moment.` : `${name} gets a nudge that you want to swap. They only see yours if they swap too.`}</p>
             <input value={value} onChange={e => setValue(e.target.value)} inputMode={kind === 'phone' ? 'tel' : 'text'} autoCapitalize="none"
               placeholder={kind === 'phone' ? '(555) 123-4567' : '@username'} className="w-full bg-raised border border-line rounded-xl px-4 py-3 text-white placeholder:text-mute" />
             <button onClick={() => { setKind(kind === 'phone' ? 'instagram' : 'phone'); setValue('') }} className="text-sm text-mute hover:text-white">{kind === 'phone' ? 'Use Instagram instead' : 'Use my phone number instead'}</button>

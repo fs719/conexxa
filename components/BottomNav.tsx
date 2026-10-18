@@ -29,7 +29,13 @@ export default function BottomNav() {
         const mine = m.user1_id === user.id ? m.user1_answer : m.user2_answer
         return !m.chat_unlocked && !mine && parseTs(m.expires_at) > new Date()
       })
-      setCount(waiting.length)
+      let asked = 0
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/swaps', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        if (r.ok) asked = ((await r.json()).asked || []).filter((mid: string) => { try { return localStorage.getItem(`conexxa_hush_${mid}`) !== '1' } catch { return true } }).length
+      } catch {}
+      setCount(waiting.length + asked)
     })()
   }, [path])
 
