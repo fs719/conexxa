@@ -16,3 +16,10 @@ for (const s of (sw || []).filter(s => ids.has(s.swiper_id) && ids.has(s.swiped_
 const { data: cr } = await db.from('crushes').select('*')
 console.log('CRUSHES')
 for (const c of (cr || []).filter(c => ids.has(c.sender_id))) console.log(' -', nm[c.sender_id], '->', c.target_email, '| emailed', c.emailed, '|', c.created_at)
+const { data: ce } = await db.from('contact_exchange').select('*')
+console.log('CONTACT_EXCHANGE (who opted in, no values)')
+for (const c of ce || []) {
+  const m = (ms || []).find(x => x.id === c.match_id)
+  if (!m || !(ids.has(m.user1_id) || ids.has(m.user2_id))) continue
+  console.log(' -', c.match_id.slice(0, 8), nm[m.user1_id], 'opted in:', !!c.user1_value, '|', nm[m.user2_id], 'opted in:', !!c.user2_value)
+}
