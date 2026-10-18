@@ -1,0 +1,101 @@
+commit: 465841ef31ab78c15a3b932b28eeb6757b8696fe
+time: 2026-10-18T03:39:22Z
+
+(node:2445) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/conexxa/conexxa/lib/icebreakers.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/runner/work/conexxa/conexxa/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO testing against https://www.conexxa.net
+PASS page / loads
+PASS page /signup loads
+PASS page /login loads
+PASS page /terms loads
+PASS page /privacy loads
+PASS page /swipe loads
+PASS page /matches loads
+PASS page /crush loads
+PASS page /forgot-password loads
+PASS crush landing page text
+PASS normal landing text
+PASS bad opt-out link rejected
+INFO test keys project: wewzxmhtkwrpuvmwvgwq.supabase.co | live site project(s): wewzxmhtkwrpuvmwvgwq.supabase.co
+PASS live site uses the same Supabase project as the test keys
+PASS Supabase accepts the test login token
+INFO live site answer to a valid token: 200 {"crushes":[],"left":3}
+INFO token iss: https://wewzxmhtkwrpuvmwvgwq.supabase.co/auth/v1 role: authenticated
+PASS stats blocked without login
+PASS stats blocked for normal user
+PASS swipe needs login
+PASS one-sided like does not match
+PASS mutual like makes a match
+PASS backfill creates no duplicate
+PASS exactly one match row
+PASS match expires in about 48h
+PASS prompt is from the new question list
+PASS bad answer rejected
+PASS chat locked before answers
+PASS first answer keeps chat locked
+PASS second answer unlocks chat
+PASS message sends
+PASS empty message rejected
+PASS other person sees the message
+PASS outsider cannot read chat
+INFO school_domain column: present
+INFO anon profiles read: permission denied for table profiles
+PASS signup can create the profile
+PASS signup email is forced to the verified one
+PASS profile and photo can be updated
+PASS photo can be removed
+PASS own profile readable with the app columns
+PASS profiles are not readable without logging in
+PASS other people's college emails are NOT readable
+PASS cannot edit someone else's profile
+PASS cannot swipe as someone else
+PASS outsider cannot see a match
+PASS outsider cannot read messages straight from the database
+PASS cannot create a match by writing to the database
+PASS cannot tamper with a match's answers
+PASS cannot forge a message as someone else
+PASS sign-in codes table is closed
+PASS crush table is closed
+PASS vibe-check and contact tables are closed to direct reads
+PASS school badge cannot be faked by editing your own profile
+PASS cannot overwrite someone else's photo
+PASS vibe check rejects bad input
+PASS first vibe answer saved, hidden from other
+PASS cannot answer twice
+PASS both answers revealed after both finish
+PASS bad instagram rejected
+PASS simultaneous contact opt-ins both succeed
+PASS A sees B phone, normalized
+PASS swapped list shows the match once both opted in
+PASS B sees A instagram
+PASS cannot take back after both opted in
+PASS unmatch works
+PASS match is deleted
+PASS match does not come back after backfill
+PASS outsider cannot unmatch
+PASS crush rejects non-college email
+PASS crush rejects own email
+PASS crush saves
+PASS duplicate crush rejected
+PASS sender sees it as Sent
+PASS receiver inbox has the sender, no extras
+PASS crush is stored as a like
+PASS liking the admirer back matches instantly
+PASS receiver is told it came from a crush
+PASS sender sees "your crush liked you back"
+PASS receiver sees "they had a crush on you"
+PASS a normal match is not labelled a crush
+PASS crush match chat unlocks
+PASS one person can opt in alone
+PASS one-sided opt-in gives the other person a nudge only, no contact details
+PASS the person who opted in gets no signal about themselves
+PASS one-sided opt-in is not a full swap for the sender either
+PASS sender now sees It is a match
+PASS delete account a
+PASS delete account b
+PASS delete account c
+PASS no profiles left behind
+
+86 passed, 0 failed
