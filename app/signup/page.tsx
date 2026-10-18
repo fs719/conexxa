@@ -13,6 +13,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [hasSession, setHasSession] = useState(false)
+  const [already, setAlready] = useState('')
   const [code, setCode] = useState('')
   const [form, setForm] = useState({
     birthdate: '',
@@ -29,8 +30,12 @@ export default function SignUp() {
   })
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) { setHasSession(true); setForm(prev => ({ ...prev, email: user.email || '' })) }
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      // Already has a finished profile: this is someone logged in, not someone mid-signup.
+      const { data: p } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      if (p?.name) { setAlready(user.email || 'your account'); return }
+      setHasSession(true); setForm(prev => ({ ...prev, email: user.email || '' }))
     })
   }, [])
 
@@ -109,6 +114,17 @@ export default function SignUp() {
     }
     router.push('/dashboard')
   }
+
+  if (already) return (
+    <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-5">
+        <h1 className="text-3xl font-bold">You're already in</h1>
+        <p className="text-mute break-words">You're logged in as {already}. To make a different account, log out first.</p>
+        <button onClick={() => router.push('/swipe')} className="w-full btn-flame py-3 rounded-full font-semibold">Back to Discover</button>
+        <button onClick={async () => { await supabase.auth.signOut(); window.location.href = '/signup' }} className="w-full border border-line hover:border-white/30 py-3 rounded-full font-semibold transition">Log out and sign up new</button>
+      </div>
+    </main>
+  )
 
   return (
     <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
