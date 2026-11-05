@@ -39,7 +39,7 @@ export default function Login() {
         </button>
         <p className="text-center text-mute">
           Don't have an account?{' '}
-          <Link href="/signup" className="text-ember hover:underline">Sign Up</Link>
+          <Link href="/signup" className="text-ember hover:underline">Get on the list</Link>
         </p>
         <p className="text-center text-mute">
           <Link href="/forgot-password" className="text-ember hover:underline">Forgot password?</Link>

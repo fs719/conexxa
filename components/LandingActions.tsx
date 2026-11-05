@@ -10,7 +10,7 @@ export default function LandingActions() {
 
   if (email) return (
     <div className="mt-10 space-y-3">
-      <Link href="/swipe" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Open Conexxa</Link>
+      <Link href="/dashboard" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Open Conexxa</Link>
       <p className="text-sm text-mute text-center break-words">
         Logged in as {email}.{' '}
         <button onClick={async () => { await supabase.auth.signOut(); setEmail(null) }} className="underline hover:text-white">Not you? Log out</button>
@@ -19,7 +19,7 @@ export default function LandingActions() {
   )
   return (
     <div className="mt-10 space-y-3">
-      <Link href="/signup" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Create account</Link>
+      <Link href="/signup" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Get on the list</Link>
       <Link href="/login" className="block text-center py-4 rounded-full font-semibold text-lg border border-line hover:border-white/30 transition">Log in</Link>
     </div>
   )

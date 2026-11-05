@@ -10,6 +10,7 @@ const Icon = ({ d }: { d: string }) => (
 )
 
 const TABS = [
+  { href: '/crush', label: 'Crush', d: 'M12 3l2.600 5.700 6.200.700-4.600 4.200 1.300 6.100L12 16.600 6.500 19.700l1.300-6.100L3.200 9.400l6.200-.700z' },
   { href: '/swipe', label: 'Discover', d: 'M12 21s-7-4.6-9.3-9.1C1 8.5 3 5 6.4 5c2 0 3.6 1.1 5.6 3.4C14 6.1 15.600 5 17.600 5 21 5 23 8.500 21.300 11.900 19 16.400 12 21 12 21z' },
   { href: '/matches', label: 'Matches', d: 'M21 12a8 8 0 0 1-11.600 7.100L4 20l1-4.600A8 8 0 1 1 21 12z' },
   { href: '/settings', label: 'Profile', d: 'M20 21v-1.500a4.500 4.500 0 0 0-4.500-4.500h-7A4.500 4.500 0 0 0 4 19.500V21M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
@@ -29,19 +30,13 @@ export default function BottomNav() {
         const mine = m.user1_id === user.id ? m.user1_answer : m.user2_answer
         return !m.chat_unlocked && !mine && parseTs(m.expires_at) > new Date()
       })
-      let asked = 0
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const r = await fetch('/api/swaps', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-        if (r.ok) asked = ((await r.json()).asked || []).filter((mid: string) => { try { return localStorage.getItem(`conexxa_hush_${mid}`) !== '1' } catch { return true } }).length
-      } catch {}
-      setCount(waiting.length + asked)
+      setCount(waiting.length)
     })()
   }, [path])
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 border-t border-line bg-ink/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="max-w-md mx-auto grid grid-cols-3">
+      <div className="max-w-md mx-auto grid grid-cols-4">
         {TABS.map(t => {
           const active = path === t.href
           return (

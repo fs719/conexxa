@@ -1,15 +1,17 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 
 type Crush = { id: string; email: string; status: 'sent' | 'matched' }
 const LABEL = { sent: 'Sent', matched: "It's a match" }
 
-export default function CrushPage() {
+function CrushPage() {
   const router = useRouter()
+  const welcome = !!useSearchParams().get('welcome')
+  const [waiting, setWaiting] = useState(false)
   const [email, setEmail] = useState('')
   const [crushes, setCrushes] = useState<Crush[]>([])
   const [left, setLeft] = useState(3)
@@ -31,6 +33,7 @@ export default function CrushPage() {
       if (!session) { router.push('/login'); return }
       setToken(session.access_token)
       load(session.access_token)
+      fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => setWaiting(!!d?.waiting)).catch(() => {})
       fetch('/api/pulse', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => d && setPulse(d)).catch(() => {})
     })()
   }, [])
@@ -50,15 +53,15 @@ export default function CrushPage() {
     <main className="min-h-dvh bg-ink text-white pb-24">
       <div className="max-w-md mx-auto px-4 pt-4 space-y-6">
         <div className="flex items-center gap-3">
-          <Link href="/swipe" aria-label="Back" className="text-mute hover:text-white text-xl">←</Link>
-          <h1 className="text-2xl font-bold text-crush">Secret crush</h1>
+          <h1 className="text-2xl font-bold">Who's <span className="text-crush">yours</span>?</h1>
         </div>
+        {waiting && <Link href="/crush/reveal" className="block text-center rounded-xl px-3 py-3 bg-panel border border-line crush-edge font-semibold">Someone has a crush on you. See who it could be</Link>}
         {pulse && pulse.n > 0 && <p className="text-ok text-sm">{pulse.n} secret crushes sent {pulse.scope === 'school' ? 'at your school' : 'on campuses'} this week</p>}
-        <p className="text-mute">Put in their college email. They get a note that someone has a crush on them. They never find out it's you unless they like you back.</p>
+        <p className="text-mute">Put in a schoolmate's college email. They get a note that someone has a crush on them. They never find out it's you unless they pick you back.</p>
 
         {left > 0 ? (
           <form onSubmit={send} className="space-y-3 rounded-2xl bg-panel border border-line crush-edge p-4">
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" autoCapitalize="none" placeholder="their@school.edu"
+            <input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" autoCapitalize="none" placeholder="theirname@yourschool.edu"
               className="w-full bg-ink border border-line rounded-xl p-3 text-white placeholder:text-mute focus-visible:outline-[#5be3a6]" />
             {error && <p className="text-flame text-sm">{error}</p>}
             {sent && <p className="text-ok text-sm">Sent. Your name stays secret.</p>}
@@ -67,6 +70,7 @@ export default function CrushPage() {
           </form>
         ) : <p className="text-mute text-center">You've used all 3 this week. Each one comes back 7 days after you send it.</p>}
 
+        {welcome && <Link href="/swipe" className="block text-center w-full btn-flame py-3 rounded-full font-semibold">Keep going</Link>}
         <button type="button" onClick={async () => {
           const url = 'https://conexxa.net', text = 'Got a crush on someone at school? Send it secretly on Conexxa.'
           try { if (navigator.share) { await navigator.share({ title: 'Conexxa', text, url }); return } await navigator.clipboard.writeText(`${text} ${url}`); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
@@ -90,3 +94,5 @@ export default function CrushPage() {
     </main>
   )
 }
+
+export default function Page() { return <Suspense fallback={null}><CrushPage /></Suspense> }

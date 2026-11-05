@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { createHash, createHmac } from 'crypto'
+import { createHash, createHmac, timingSafeEqual } from 'crypto'
 
 export const admin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -11,14 +11,24 @@ export const hashCode = (code: string, email: string, purpose: string) =>
     .update(`${code}|${email}|${purpose}|${process.env.SUPABASE_SERVICE_ROLE_KEY}`)
     .digest('hex')
 
+// Signed links so only we can make them. The finish link lets a person set a password and go live; the remove link takes them off the list.
+const sign = (kind: string, email: string) =>
+  createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '').update(`${kind}|${email}`).digest('hex').slice(0, 32)
+export const finishToken = (email: string) => sign('finish', email)
+export const removeToken = (email: string) => sign('remove', email)
+export const tokenOk = (kind: 'finish' | 'remove', email: string, t: unknown) => {
+  const a = Buffer.from(sign(kind, email)), b = Buffer.from(String(t || ''))
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 export const normEmail = (e: unknown) => String(e || '').trim().toLowerCase()
 export const isEdu = (e: string) =>
-  /^[^\s@]+@[^\s@]+\.edu$/.test(e) ||
+  /^[^\s@,()]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.edu$/.test(e) ||
   /^[^\s@]+\+conexxatest@gmail\.com$/.test(e) // TEMP test backdoor, remove before wide launch
 
 // Plain text, no links, code in the subject: the format that reaches .edu inboxes.
 export async function sendCodeEmail(to: string, code: string, purpose: string) {
-  const what = purpose === 'reset' ? 'reset your password' : 'confirm your account'
+  const what = purpose === 'reset' ? 'reset your password' : purpose === 'waitlist' ? 'join the list' : 'confirm your account'
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -52,16 +62,21 @@ export async function findUserId(email: string): Promise<string | null> {
 export const optoutToken = (email: string) =>
   createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '').update(`optout|${email}`).digest('hex').slice(0, 32)
 
+// Crush emails go to people who never signed up, so they use their own Resend key when one is set.
+// A complaint on these can then never block sign-up codes. Falls back to the main key until the second account exists.
+// Set CRUSH_MAILING_ADDRESS to a business mailing address (not a home address); it is added to the footer when present.
 export async function sendCrushEmail(to: string) {
   const link = `https://conexxa.net/api/crush/optout?e=${encodeURIComponent(to)}&t=${optoutToken(to)}`
+  const key = process.env.RESEND_API_KEY_CRUSH || process.env.RESEND_API_KEY
+  const address = (process.env.CRUSH_MAILING_ADDRESS || '').trim()
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'Conexxa <verify@conexxa.net>',
       to: [to],
       subject: 'Someone at your school has a crush on you',
-      text: `Someone at your school has a crush on you.\n\nThey put your email into Conexxa, a way to meet people on campus. We will never say who it is. If you join and like them back, you both find out. If you don't, nobody ever knows.\n\nTake a look: https://conexxa.net/?from=crush\n\nYou will only get this email once. To make sure you never get one like it again: ${link}`,
+      text: `Someone at your school has a crush on you.\n\nThey put your email into Conexxa, a way to meet people on campus. We will never say who it is. If you join and pick them back, you both find out. If you don't, nobody ever knows.\n\nTake a look: https://conexxa.net/?from=crush\n\nYou will only get this email once. To make sure you never get one like it again: ${link}${address ? `\n\nConexxa, ${address}` : ''}`,
     }),
   })
   if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)

@@ -1,5 +1,6 @@
 import { admin } from '@/lib/server'
-import { CASUAL, SERIOUS } from '@/lib/icebreakers'
+import { pickQuestion } from '@/lib/icebreakers'
+import { mySchool, profileOf } from '@/lib/gate'
 import { backfillMatches, crushRoles } from '@/lib/matching'
 import { normEmail } from '@/lib/server'
 
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
+
+  if (!(await mySchool(db, user.email)).live) return Response.json({ error: 'Your school is not open yet.' }, { status: 403 })
+  if (!(await profileOf(db, user.id))) return Response.json({ error: 'Finish joining first.' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const swipedId = String(body.swipedId || '')
@@ -37,12 +41,10 @@ export async function POST(req: Request) {
   const roleOf = async () => (await crushRoles(db, user.id, normEmail(user.email), [swipedId]))[swipedId] || null
   if (existing?.length) return Response.json({ matched: true, id: existing[0].id, crush: await roleOf() })
 
-  const { data: me } = await db.from('profiles').select('intent').eq('id', user.id).maybeSingle()
-  const pool = me?.intent === 'serious' ? SERIOUS : CASUAL
   const { data: created, error: mErr } = await db.from('matches').insert({
     user1_id: user.id,
     user2_id: swipedId,
-    icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
+    icebreaker_prompt: pickQuestion(),
     expires_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
   }).select('id').single()
   if (mErr) return Response.json({ error: mErr.message }, { status: 500 })
@@ -55,5 +57,6 @@ export async function GET(req: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
+  if (!(await mySchool(db, user.email)).live || !(await profileOf(db, user.id))) return Response.json({ created: 0 })
   return Response.json({ created: await backfillMatches(db, user.id) })
 }

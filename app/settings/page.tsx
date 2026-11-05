@@ -8,7 +8,8 @@ import BottomNav from '@/components/BottomNav'
 export default function Settings() {
   const router = useRouter()
   const [userId, setUserId] = useState('')
-  const [form, setForm] = useState({ name: '', bio: '', intent: 'casual', interested_in: 'everyone', photo_url: '' })
+  const [form, setForm] = useState({ name: '', bio: '', interested_in: 'everyone', photo_url: '' })
+  const [hidden, setHidden] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
@@ -19,8 +20,11 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUserId(user.id)
-      const { data } = await supabase.from('profiles').select('name,bio,intent,interested_in,photo_url').eq('id', user.id).single()
-      if (data) setForm({ name: data.name || '', bio: data.bio || '', intent: data.intent || 'casual', interested_in: data.interested_in || 'everyone', photo_url: data.photo_url || '' })
+      const { data } = await supabase.from('profiles').select('name,bio,photo_url').eq('id', user.id).single()
+      const { data: { session } } = await supabase.auth.getSession()
+      const mine = await fetch('/api/me', { headers: { Authorization: `Bearer ${session?.access_token}` } }).then(r => r.ok ? r.json() : null).catch(() => null)
+      if (mine?.profile) setHidden(!!mine.profile.hidden)
+      if (data) setForm({ name: data.name || '', bio: data.bio || '', interested_in: mine?.profile?.interested_in || 'everyone', photo_url: data.photo_url || '' })
       setLoading(false)
     })()
   }, [])
@@ -37,7 +41,7 @@ export default function Settings() {
       photo_url = `${supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
     }
     const { error } = await supabase.from('profiles').update({
-      name: form.name.trim(), bio: form.bio, intent: form.intent, interested_in: form.interested_in, photo_url: photo_url || null,
+      name: form.name.trim(), bio: form.bio, interested_in: form.interested_in, photo_url: photo_url || null,
     }).eq('id', userId)
     setSaving(false)
     if (error) { setMsg('Could not save. Try again.'); return }
@@ -73,18 +77,16 @@ export default function Settings() {
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Profile</h1>
         </div>
+        <button onClick={async () => { const next = !hidden; setHidden(next); const { error } = await supabase.from('profiles').update({ hidden: next }).eq('id', userId); if (error) { setHidden(!next); setMsg('Could not update. Try again.') } }}
+          className={`w-full text-left rounded-2xl border p-4 transition ${hidden ? 'border-white/40 bg-raised' : 'border-line bg-panel'}`}>
+          <span className="font-semibold">{hidden ? 'You are hidden. Tap to go live again' : 'Hide me'}</span>
+          <span className="block text-sm text-mute mt-1">{hidden ? 'Nobody at your school can see you in Discover or in a crush grid.' : 'Pause your profile any time. Nobody sees you until you turn it back on.'}</span>
+        </button>
         <PhotoPicker file={photo} url={form.photo_url} onFile={setPhoto} onRemove={() => { setPhoto(null); setForm(f => ({ ...f, photo_url: '' })) }} />
         <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Name"
           className="w-full bg-panel border border-line rounded-xl p-3 text-white" />
         <textarea value={form.bio} maxLength={200} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder="Bio"
           className="w-full bg-panel border border-line rounded-xl p-3 text-white h-28 resize-none" />
-        <p className="text-mute text-sm">Looking for</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[['casual', 'Casual'], ['serious', 'Serious']].map(([v, l]) => (
-            <button key={v} onClick={() => setForm({ ...form, intent: v })} className={pill(form.intent === v)}>{l}</button>
-          ))}
-        </div>
-        <p className="text-mute text-xs">Casual: photo and name hidden until you match. Serious: shown openly.</p>
         <p className="text-mute text-sm">Show me</p>
         <div className="grid grid-cols-3 gap-3">
           {[['Male', 'Men'], ['Female', 'Women'], ['everyone', 'Everyone']].map(([v, l]) => (

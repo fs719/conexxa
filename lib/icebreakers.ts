@@ -20,6 +20,13 @@ export const SERIOUS: Icebreaker[] = [
   { q: 'Your love language?', options: ['Words', 'Quality time', 'Little surprises', 'Acts of service'] },
 ]
 
+// The one question every new match answers. Casual vs serious is gone, so there is a single pool.
+export const QUESTIONS: Icebreaker[] = [
+  CASUAL[0], CASUAL[1], CASUAL[2], CASUAL[3], CASUAL[4], CASUAL[6],
+  SERIOUS[0], SERIOUS[1], SERIOUS[3], SERIOUS[4],
+]
+export const pickQuestion = () => QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)].q
+
 const LEGACY_CASUAL: Icebreaker[] = [
   { q: 'Pineapple on pizza: Yes or no?', options: ['Yes, always', 'No, never', 'Only on a dare', "I'll eat anything"] },
   { q: 'Pick your karaoke move', options: ['Power ballad', 'Throwback pop', 'Rap verse', 'I only watch'] },

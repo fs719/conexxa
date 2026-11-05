@@ -24,7 +24,7 @@ declare cols text;
 begin
   select string_agg(quote_ident(column_name), ',') into cols
   from information_schema.columns
-  where table_schema = 'public' and table_name = 'profiles' and column_name <> 'edu_email';
+  where table_schema = 'public' and table_name = 'profiles' and column_name not in ('edu_email', 'interested_in', 'hidden');
   revoke select on public.profiles from anon, authenticated;
   execute format('grant select (%s) on public.profiles to authenticated', cols);
 end $$;

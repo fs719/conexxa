@@ -7,3 +7,14 @@ export function schoolFrom(email?: string | null): string | null {
   if (!label) return null
   return label.length <= 4 ? label.toUpperCase() : label[0].toUpperCase() + label.slice(1)
 }
+
+// The school a person belongs to, from their email or domain. "a@mail.psu.edu" -> "psu.edu". Subdomains collapse to one school.
+export function schoolDomain(emailOrDomain?: string | null): string {
+  const e = (emailOrDomain || '').trim().toLowerCase()
+  const d = e.includes('@') ? e.split('@')[1] : e
+  const parts = d.replace(/[^a-z0-9.-]/g, '').split('.').filter(Boolean) // letters, digits, dots and dashes only: safe to put in a database filter
+  return parts.length <= 2 ? parts.join('.') : parts.slice(-2).join('.')
+}
+
+// People needed before a school opens. A school's own number in the schools table wins over this.
+export const DEFAULT_GOAL = 70
