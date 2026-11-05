@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const old = await findUserId(email)
     const { data: has } = old ? await db.from('profiles').select('id').eq('id', old).maybeSingle() : { data: null }
     if (!old || has) return bad('An account with this email already exists. Log in instead.', 409)
-    const { error: ue } = await db.auth.admin.updateUserById(old, { password })
+    const { error: ue } = await db.auth.admin.updateUserById(old, { password, email_confirm: true })
     if (ue) return bad(ue.message, 500)
     uid = old
   } else return bad(error?.message || 'Could not create your account.', 500)

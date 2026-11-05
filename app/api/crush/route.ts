@@ -1,6 +1,6 @@
 import { admin, isEdu, normEmail, sendCrushEmail } from '@/lib/server'
 import { crushRoles } from '@/lib/matching'
-import { mySchool } from '@/lib/gate'
+import { mySchool, profileOf } from '@/lib/gate'
 import { schoolDomain } from '@/lib/school'
 
 const MAX_CRUSHES = 3
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
 
   if (!isEdu(email)) return Response.json({ error: 'Use their college email (ends in .edu).' }, { status: 400 })
   if (email === normEmail(user.email)) return Response.json({ error: "That's your own email." }, { status: 400 })
+  if (!(await profileOf(db, user.id))) return Response.json({ error: 'Finish joining first.' }, { status: 403 })
   const school = await mySchool(db, user.email)
   if (!school.live) return Response.json({ error: 'Your school opens when enough students have joined.' }, { status: 403 })
   if (schoolDomain(email) !== school.domain) return Response.json({ error: 'Use a classmate\'s email from your own school.' }, { status: 400 })
@@ -64,8 +65,17 @@ export async function POST(req: Request) {
   if (recent(mine as any) >= MAX_CRUSHES) return Response.json({ error: `You can send ${MAX_CRUSHES} secret crushes a week. Come back soon.` }, { status: 400 })
   if ((mine || []).some(c => c.target_email === email)) return Response.json({ error: 'You already added them.' }, { status: 400 })
 
+  // Save the crush first (the unique row stops a double send), then check the weekly cap again so parallel requests cannot beat it.
+  const { data: row, error } = await db.from('crushes').insert({ sender_id: user.id, target_email: email, emailed: false }).select('id').single()
+  if (error || !row) return Response.json({ error: 'You already added them.' }, { status: 400 })
+  const { data: after } = await db.from('crushes').select('created_at').eq('sender_id', user.id)
+  if (recent(after as any) > MAX_CRUSHES) {
+    await db.from('crushes').delete().eq('id', row.id)
+    return Response.json({ error: `You can send ${MAX_CRUSHES} secret crushes a week. Come back soon.` }, { status: 400 })
+  }
+
+  // The crush is only a row. It becomes a like only if the person it points at picks the sender on the grid.
   const { data: target } = await db.from('profiles').select('id').eq('edu_email', email).maybeSingle()
-  let emailed = false
   if (!target) {
     const { data: opted } = await db.from('crush_optout').select('email').eq('email', email).maybeSingle()
     const { data: off } = await db.from('waitlist').select('removed').eq('email', email).eq('removed', true).maybeSingle()
@@ -73,13 +83,8 @@ export async function POST(req: Request) {
     const since = new Date(Date.now() - 24 * 3600_000).toISOString()
     const { count } = await db.from('crushes').select('id', { count: 'exact', head: true }).eq('emailed', true).gte('created_at', since)
     if (!opted && !off && !prior?.length && (count || 0) < DAILY_EMAIL_CAP) {
-      try { await sendCrushEmail(email); emailed = true } catch {}
+      try { await sendCrushEmail(email); await db.from('crushes').update({ emailed: true }).eq('id', row.id) } catch {}
     }
   }
-
-  const { error } = await db.from('crushes').insert({ sender_id: user.id, target_email: email, emailed })
-  if (error) return Response.json({ error: 'Could not save. Try again.' }, { status: 500 })
-
-  // The crush is just a row here. It only becomes a like if the person it points at picks the sender on the grid.
   return Response.json({ ok: true })
 }

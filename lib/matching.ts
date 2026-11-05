@@ -13,13 +13,6 @@ export async function setLike(db: DB, swiper: string, swiped: string) {
   await db.from('swipes').insert({ swiper_id: swiper, swiped_id: swiped, direction: 'like' })
 }
 
-// Record a pass the same way: no reliance on a unique constraint.
-export async function setSkip(db: DB, swiper: string, swiped: string) {
-  const { data: ex } = await db.from('swipes').select('swiper_id').eq('swiper_id', swiper).eq('swiped_id', swiped).limit(1)
-  if (ex?.length) { await db.from('swipes').update({ direction: 'skip' }).eq('swiper_id', swiper).eq('swiped_id', swiped); return }
-  await db.from('swipes').insert({ swiper_id: swiper, swiped_id: swiped, direction: 'skip' })
-}
-
 // Creates any missing matches for mutual likes involving this user (skips blocked pairs).
 export async function backfillMatches(db: DB, userId: string) {
   const { data: mine } = await db.from('swipes').select('swiped_id').eq('swiper_id', userId).eq('direction', 'like')
@@ -46,18 +39,17 @@ export async function backfillMatches(db: DB, userId: string) {
 }
 
 
-// Who crushed on whom, for people you are matched with. 'theirs' = they sent you a secret crush, 'mine' = you sent them one.
-// Only ever reported for people you already matched with, so a crush is never revealed before a mutual like.
-export async function crushRoles(db: any, userId: string, myEmail: string, otherIds: string[]): Promise<Record<string, 'theirs' | 'mine'>> {
+// Who crushed on whom, for matches the crush grid made. 'theirs' = they sent you a secret crush, 'mine' = you sent them one.
+// Read from a mark the grid puts on the match itself, so a match made any other way is never labelled a crush.
+export async function crushRoles(db: DB, userId: string, _myEmail: string, otherIds: string[]): Promise<Record<string, 'theirs' | 'mine'>> {
   const out: Record<string, 'theirs' | 'mine'> = {}
   if (!otherIds.length) return out
-  const { data: theirs } = await db.from('crushes').select('sender_id').eq('target_email', myEmail).in('sender_id', otherIds)
-  for (const r of theirs || []) out[r.sender_id] = 'theirs'
-  const { data: sent } = await db.from('crushes').select('target_email').eq('sender_id', userId)
-  const emails = (sent || []).map((r: any) => r.target_email)
-  if (emails.length) {
-    const { data: ps } = await db.from('profiles').select('id').in('edu_email', emails).in('id', otherIds)
-    for (const p of ps || []) if (!out[p.id]) out[p.id] = 'mine'
+  const { data: ms } = await db.from('matches').select('user1_id,user2_id,crush_sender')
+    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`).not('crush_sender', 'is', null)
+  for (const m of ms || []) {
+    const other = m.user1_id === userId ? m.user2_id : m.user1_id
+    if (!otherIds.includes(other)) continue
+    out[other] = m.crush_sender === userId ? 'mine' : 'theirs'
   }
   return out
 }

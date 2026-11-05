@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
-import { schoolFrom, schoolDomain } from '@/lib/school'
+import { schoolFrom } from '@/lib/school'
 
-type Profile = { id: string; name: string; age?: number; bio?: string; photo_url?: string; gender?: string; interested_in?: string; school_domain?: string }
+type Profile = { id: string; name: string; age?: number; bio?: string; photo_url?: string; gender?: string; school_domain?: string }
 // Flip to true before launch to make a photo mandatory before swiping.
 const REQUIRE_PHOTO = false
 const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
@@ -35,47 +35,23 @@ export default function Swipe() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, gender, interested_in, school_domain').eq('id', user.id).single()
+      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, gender, school_domain').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
-      // Nothing works until the school has opened.
-      const { data: { session: s0 } } = await supabase.auth.getSession()
-      const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${s0?.access_token}` } }).catch(() => null)
-      if (meRes?.ok && !(await meRes.json()).school.live) { router.replace('/waiting'); return }
       if (REQUIRE_PHOTO && !myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
-      setShow(myProfile.interested_in || 'everyone')
       uid.current = user.id
-
-      const { data: swipedData } = await supabase.from('swipes').select('swiped_id').eq('swiper_id', user.id)
-      const { data: blockedData } = await supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id)
-      let blockedByIds: string[] = []
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const r = await fetch('/api/blocked-by', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-        blockedByIds = (await r.json()).ids || []
-      } catch {}
-
-      const excluded = [...new Set([
-        ...(swipedData?.map((s: any) => s.swiped_id) || []),
-        ...(blockedData?.map((b: any) => b.blocked_id) || []),
-        ...blockedByIds,
-      ])]
-
-      // Discover is your own school only, and nobody who has hidden themselves.
-      const mineBase = schoolDomain(myProfile.school_domain || '')
-      let query = supabase.from('profiles').select('id, name, age, bio, photo_url, gender, interested_in, school_domain').neq('id', user.id).eq('hidden', false)
-        .or(`school_domain.eq.${mineBase},school_domain.like.*.${mineBase}`)
-      if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
-      const { data } = await query
-
+      const { data: { session } } = await supabase.auth.getSession()
+      // The deck is built on the server: your own school only, nobody hidden, only people who want to see you. Nothing works until the school opens.
+      const deckRes = await fetch('/api/deck', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+      if (deckRes.status === 403) { const d = await deckRes.json().catch(() => ({})); router.replace(d.closed ? '/waiting' : '/'); return }
+      const deck = deckRes.ok ? await deckRes.json() : { people: [], me: { interested_in: 'everyone' } }
+      setShow(deck.me.interested_in)
       // A secret crush waiting for you is answered on the crush grid. Here we only learn that one exists.
       try {
-        const { data: { session } } = await supabase.auth.getSession()
         const r = await fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
         setWaiting(!!(await r.json()).waiting)
       } catch {}
-      const list = (data || []).filter((p: any) => p.name && wants(p.interested_in, myProfile.gender))
-      const ordered = list.sort(() => Math.random() - 0.5)
+      const ordered = deck.people as Profile[]
       setPool(ordered)
       setLoading(false)
     }

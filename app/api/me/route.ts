@@ -1,5 +1,5 @@
 import { admin } from '@/lib/server'
-import { mySchool } from '@/lib/gate'
+import { mySchool, profileOf } from '@/lib/gate'
 
 // Where the signed-in person should land: school status, plus whether a secret crush is waiting for them.
 export async function GET(req: Request) {
@@ -14,5 +14,6 @@ export async function GET(req: Request) {
       .eq('target_email', (user.email || '').toLowerCase()).is('revealed_at', null)
     pending = (count ?? 0) > 0
   }
-  return Response.json({ school: { name: school.name, count: school.count, goal: school.goal, live: school.live }, pending })
+  const me = await profileOf(db, user.id)
+  return Response.json({ school: { name: school.name, count: school.count, goal: school.goal, live: school.live }, pending, profile: me ? { interested_in: me.interested_in || 'everyone', hidden: !!me.hidden } : null })
 }

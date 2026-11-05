@@ -136,8 +136,10 @@ async function main() {
     const rm = await cl.from('profiles').update({ photo_url: null }).eq('id', cu.user.id)
     const { data: after } = await admin.from('profiles').select('photo_url').eq('id', cu.user.id).single()
     ok('photo can be removed', !rm.error && after?.photo_url === null, rm.error?.message || '')
-    const own = await cl.from('profiles').select('name,photo_url,intent,gender,interested_in,school_domain').eq('id', cu.user.id).single()
+    const own = await cl.from('profiles').select('name,photo_url,intent,gender,school_domain').eq('id', cu.user.id).single()
     ok('own profile readable with the app columns', !own.error && own.data?.school_domain === 'e2e-test.edu', own.error?.message || '')
+    const priv = await cl.from('profiles').select('interested_in').eq('id', cu.user.id)
+    ok('who-you-want-to-see and hidden cannot be read straight from the database', !!priv.error, 'read worked')
   }
 
   // Data privacy and tamper checks, done the way a curious or hostile user could (straight at the database)
@@ -331,7 +333,7 @@ async function main() {
     await api('/api/swipe', A.token); await api('/api/swipe', D.token)
     const { data: still2 } = await admin.from('matches').select('id').or(`and(user1_id.eq.${D.id},user2_id.eq.${A.id}),and(user1_id.eq.${A.id},user2_id.eq.${D.id})`)
     ok('no match appears later either', !still2?.length)
-    ok('the sender is out of Discover for the receiver', (await admin.from('swipes').select('direction').eq('swiper_id', A.id).eq('swiped_id', D.id).single()).data?.direction === 'skip')
+    ok('passing leaves no trace: no skip row for the sender', !(await admin.from('swipes').select('direction').eq('swiper_id', A.id).eq('swiped_id', D.id).maybeSingle()).data)
     void Eu
   }
 

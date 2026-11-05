@@ -1,6 +1,6 @@
 import { admin } from '@/lib/server'
 import { pickQuestion } from '@/lib/icebreakers'
-import { mySchool } from '@/lib/gate'
+import { mySchool, profileOf } from '@/lib/gate'
 import { backfillMatches, crushRoles } from '@/lib/matching'
 import { normEmail } from '@/lib/server'
 
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
 
   if (!(await mySchool(db, user.email)).live) return Response.json({ error: 'Your school is not open yet.' }, { status: 403 })
+  if (!(await profileOf(db, user.id))) return Response.json({ error: 'Finish joining first.' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const swipedId = String(body.swipedId || '')

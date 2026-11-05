@@ -30,3 +30,13 @@ export async function leaderboard(db: DB, limit = 10): Promise<SchoolStatus[]> {
   }
   return out.sort((a, b) => b.count - a.count).slice(0, limit)
 }
+
+// A person only counts once they have a finished profile. A bare login (for example from the old sign-up) can do nothing.
+export async function profileOf(db: DB, userId: string) {
+  const { data } = await db.from('profiles').select('id,name,gender,interested_in,school_domain,hidden').eq('id', userId).maybeSingle()
+  return data && data.name ? data : null
+}
+
+// Same rule Discover has always used: a profile is shown to you if its owner wants to see your gender.
+export const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
+  !interest || interest === 'everyone' || interest === gender

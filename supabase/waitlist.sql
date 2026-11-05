@@ -35,9 +35,15 @@ alter table public.schools enable row level security;
 alter table public.waitlist enable row level security;
 alter table public.crush_grids enable row level security;
 
--- "Hide me": a hidden profile is not shown in Discover or in crush grids.
+-- "Hide me": a hidden profile is not shown in Discover or in crush grids. Not readable by other students (no select grant for it).
 alter table public.profiles add column if not exists hidden boolean not null default false;
-grant select (hidden) on public.profiles to authenticated;
+
+-- Who someone wants to see is private. Other students can no longer read it straight from the database; the server uses it to pick the deck.
+revoke select (interested_in) on public.profiles from authenticated;
+revoke select (hidden) on public.profiles from authenticated;
+
+-- A match that came from a secret crush is marked when the grid creates it (and only then), so an ordinary match can never be mistaken for one.
+alter table public.matches add column if not exists crush_sender uuid;
 
 -- Existing accounts count toward their school's goal.
 insert into public.waitlist (email, school_domain, first_name, gender, has_account, launch_emailed_at)

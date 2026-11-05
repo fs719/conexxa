@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { admin, finishToken, removeToken } from '@/lib/server'
 import { schoolFrom } from '@/lib/school'
 
@@ -11,7 +12,9 @@ export async function openIfReady(db: DB, domain: string): Promise<boolean> {
   if ((count ?? 0) < s.goal) return false
   const { data: flipped } = await db.from('schools').update({ live_at: new Date().toISOString() }).eq('domain', domain).is('live_at', null).select('domain')
   if (!flipped?.length) return false // someone else opened it first
-  await sendPendingLaunchEmails(db, domain)
+  // The school is open as soon as it flips. The emails go out after the response, so a big list never holds up the last person to join.
+  const send = () => sendPendingLaunchEmails(db, domain).catch(e => console.error('launch send', e))
+  try { after(send) } catch { await send() }
   return true
 }
 
