@@ -24,7 +24,7 @@ export async function mySchool(db: DB, email: string | undefined | null) {
 export async function leaderboard(db: DB, limit = 10): Promise<SchoolStatus[]> {
   const { data: schools } = await db.from('schools').select('domain,goal,live_at')
   const out: SchoolStatus[] = []
-  for (const s of schools || []) {
+  for (const s of (schools || []).filter(x => x.domain.endsWith('.edu'))) { // only real schools; test logins never show
     const { count } = await db.from('waitlist').select('email', { count: 'exact', head: true }).eq('school_domain', s.domain).eq('removed', false)
     if ((count ?? 0) > 0) out.push({ domain: s.domain, name: schoolFrom(s.domain) || s.domain, count: count ?? 0, goal: s.goal, live: !!s.live_at })
   }
