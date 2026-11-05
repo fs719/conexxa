@@ -1,5 +1,7 @@
 import { admin, isEdu, normEmail, sendCrushEmail } from '@/lib/server'
 import { setLike, backfillMatches, crushRoles } from '@/lib/matching'
+import { mySchool } from '@/lib/gate'
+import { schoolDomain } from '@/lib/school'
 
 const MAX_CRUSHES = 3
 const WEEK_MS = 7 * 86400_000
@@ -26,14 +28,12 @@ export async function GET(req: Request) {
   }
 
   if (inbox) {
+    // Who has a crush on you that you have not been through the grid for. Ids only; you never learn which crush is whose.
     const email = normEmail(user.email)
-    const { data: rows } = await db.from('crushes').select('sender_id').eq('target_email', email)
+    const { data: rows } = await db.from('crushes').select('sender_id').eq('target_email', email).is('revealed_at', null)
     const { data: bl } = await db.from('blocks').select('blocker_id,blocked_id').or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`)
     const hidden = new Set((bl || []).map(b => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id)))
     const ids = [...new Set((rows || []).map(r => r.sender_id))].filter(id => id !== user.id && !hidden.has(id))
-    // A crush is a stored like: make it real so a like back creates the match.
-    for (const id of ids) await setLike(db, id, user.id)
-    await backfillMatches(db, user.id)
     return Response.json({ ids })
   }
 
@@ -60,6 +60,9 @@ export async function POST(req: Request) {
 
   if (!isEdu(email)) return Response.json({ error: 'Use their college email (ends in .edu).' }, { status: 400 })
   if (email === normEmail(user.email)) return Response.json({ error: "That's your own email." }, { status: 400 })
+  const school = await mySchool(db, user.email)
+  if (!school.live) return Response.json({ error: 'Your school opens when enough students have joined.' }, { status: 403 })
+  if (schoolDomain(email) !== school.domain) return Response.json({ error: 'Use a classmate\'s email from your own school.' }, { status: 400 })
 
   const { data: mine } = await db.from('crushes').select('target_email,created_at').eq('sender_id', user.id)
   if (recent(mine as any) >= MAX_CRUSHES) return Response.json({ error: `You can send ${MAX_CRUSHES} secret crushes a week. Come back soon.` }, { status: 400 })
@@ -69,10 +72,11 @@ export async function POST(req: Request) {
   let emailed = false
   if (!target) {
     const { data: opted } = await db.from('crush_optout').select('email').eq('email', email).maybeSingle()
+    const { data: off } = await db.from('waitlist').select('removed').eq('email', email).eq('removed', true).maybeSingle()
     const { data: prior } = await db.from('crushes').select('id').eq('target_email', email).eq('emailed', true).limit(1)
     const since = new Date(Date.now() - 24 * 3600_000).toISOString()
     const { count } = await db.from('crushes').select('id', { count: 'exact', head: true }).eq('emailed', true).gte('created_at', since)
-    if (!opted && !prior?.length && (count || 0) < DAILY_EMAIL_CAP) {
+    if (!opted && !off && !prior?.length && (count || 0) < DAILY_EMAIL_CAP) {
       try { await sendCrushEmail(email); emailed = true } catch {}
     }
   }

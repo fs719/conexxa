@@ -4,9 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { parseTs } from '@/lib/time'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import ContactSheet from '@/components/ContactSheet'
-import { ROUND_SIZE } from '@/lib/rounds'
 
+const igHandle = (c: string) => c.match(/^My Instagram: @([A-Za-z0-9._]{1,30})$/)?.[1] || null
 type Msg = { id: string; sender_id: string; content: string; created_at: string; pending?: boolean; failed?: boolean }
 
 export default function Chat() {
@@ -21,27 +20,12 @@ export default function Chat() {
   const token = useRef('')
   const bottom = useRef<HTMLDivElement>(null)
   const pendingRef = useRef<Msg[]>([])
-  const [sheet, setSheet] = useState(false)
-  const [turn, setTurn] = useState(false)
-  const [score, setScore] = useState<number | null>(null)
   const [crush, setCrush] = useState<string | null>(null)
-  const [swap, setSwap] = useState<{ mine: any; theirs: any; signal?: boolean } | null>(null)
-  const [hushed, setHushed] = useState(false)
-  const hadTheirs = useRef(false)
-  const swapSeen = useRef(false)
+  const [ig, setIg] = useState(false)
+  const [handle, setHandle] = useState(() => { try { return localStorage.getItem('conexxa_handle') || '' } catch { return '' } })
+  const [igErr, setIgErr] = useState('')
 
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` })
-
-  const loadSwap = async (quiet = false) => {
-    const r = await fetch(`/api/contact?matchId=${id}`, { headers: headers() })
-    if (!r.ok) return
-    const d = await r.json()
-    setSwap(d)
-    // The moment both have said yes: open the sheet and buzz once.
-    if (!quiet && d.theirs && !hadTheirs.current && swapSeen.current) { setSheet(true); try { navigator.vibrate?.([30, 60, 30]) } catch {} }
-    hadTheirs.current = !!d.theirs
-    swapSeen.current = true
-  }
 
   const load = async () => {
     const r = await fetch(`/api/messages?matchId=${id}`, { headers: headers() })
@@ -52,7 +36,7 @@ export default function Chat() {
   }
 
   useEffect(() => {
-    let timer: any, timer2: any
+    let timer: any
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
@@ -67,22 +51,10 @@ export default function Chat() {
       setOther(p)
       fetch('/api/crush?matches=1', { headers: headers() }).then(r => r.ok ? r.json() : null).then(d => setCrush(d?.roles?.[otherId] || null)).catch(() => {})
       await load()
-      if (new URLSearchParams(window.location.search).get('swap')) setSheet(true)
-      const roundCheck = async () => {
-        const r = await fetch(`/api/round?matchId=${id}`, { headers: headers() })
-        if (r.ok) {
-          const x = (await r.json()).rounds[0]
-          setTurn(x.theyDone && !x.iDone)
-          setScore(x.both ? x.both.mine.filter((v: number, i: number) => v === x.both.theirs[i]).length : null)
-        }
-      }
-      roundCheck(); timer2 = setInterval(() => { roundCheck(); loadSwap() }, 5000)
-      try { setHushed(localStorage.getItem(`conexxa_hush_${id}`) === '1') } catch {}
-      loadSwap()
       setLoading(false)
       timer = setInterval(load, 2500)
     })()
-    return () => { clearInterval(timer); clearInterval(timer2) }
+    return () => { clearInterval(timer) }
   }, [])
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
@@ -102,6 +74,16 @@ export default function Chat() {
       pendingRef.current = [...pendingRef.current, failed]
       setMessages(prev => prev.map(m => m.id === temp.id ? failed : m))
     }
+  }
+
+  const shareIg = async () => {
+    const h = handle.trim().replace(/^@/, '')
+    if (!/^[A-Za-z0-9._]{1,30}$/.test(h)) { setIgErr('Enter your Instagram username.'); return }
+    try { localStorage.setItem('conexxa_handle', h) } catch {}
+    setIg(false); setIgErr('')
+    const content = `My Instagram: @${h}`
+    const r = await fetch('/api/messages', { method: 'POST', headers: headers(), body: JSON.stringify({ matchId: id, content }) })
+    if (r.ok) await load()
   }
 
   const retry = (m: Msg) => { pendingRef.current = pendingRef.current.filter(x => x.id !== m.id); setMessages(prev => prev.filter(x => x.id !== m.id)); setText(m.content) }
@@ -128,36 +110,23 @@ export default function Chat() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-bold text-lg truncate leading-tight">{other?.name || 'Match'}</h1>
-          {(crush || swap?.theirs) && (
-            <p className="text-xs font-semibold leading-tight">
-              {crush && <span className="text-crush">{crush === 'theirs' ? 'Had a secret crush on you' : 'Your secret crush'}</span>}
-              {crush && swap?.theirs && <span className="text-mute"> · </span>}
-              {swap?.theirs && <span className="text-ok">Swapped</span>}
-            </p>
-          )}
+          {crush && <p className="text-xs font-semibold leading-tight text-crush">{crush === 'theirs' ? 'Had a secret crush on you' : 'Your secret crush'}</p>}
         </div>
         <button onClick={leave} className="text-sm text-mute hover:text-white">Not feeling it</button>
         <Link href={`/report?userId=${match.user1_id === userId ? match.user2_id : match.user1_id}`} className="text-sm text-mute hover:text-white">Report</Link>
       </header>
 
-      <div className="px-4 py-2 border-b border-line flex gap-2">
-        {swap?.theirs ? (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-crush text-sm">Swapped. View their {swap.theirs.kind === 'phone' ? 'number' : swap.theirs.kind === 'snapchat' ? 'Snapchat' : 'Instagram'}</button>
-        ) : swap?.signal && !hushed ? (
-          <>
-            <button onClick={() => setSheet(true)} className="flex-1 py-2.5 rounded-full btn-crush text-sm animate-pulse">{other?.name || 'They'} wants to swap</button>
-            <button onClick={() => { try { localStorage.setItem(`conexxa_hush_${id}`, '1') } catch {} setHushed(true) }} className="px-3 text-sm text-mute hover:text-white">Not now</button>
-          </>
-        ) : score === null ? (
-          <>
-            <Link href={`/rounds/${id}`} className="relative flex-1 block text-center py-2.5 rounded-full btn-flame text-sm font-semibold">
-              {turn ? `${other?.name || 'They'} did the vibe check. Your turn` : 'Vibe check: 3 quick picks'}
-            </Link>
-            <button onClick={() => setSheet(true)} className={`px-4 py-2.5 rounded-full border text-sm font-semibold ${swap?.mine ? 'border-white/30 text-mute' : 'border-line hover:border-white/30'}`}>{swap?.mine ? "You're in" : 'Swap'}</button>
-          </>
+      <div className="px-4 py-2 border-b border-line">
+        {ig ? (
+          <div className="flex gap-2">
+            <input value={handle} onChange={e => setHandle(e.target.value)} autoCapitalize="none" placeholder="@username" className="flex-1 bg-panel border border-line rounded-full px-4 py-2 text-white placeholder:text-mute" />
+            <button onClick={shareIg} className="btn-flame px-5 rounded-full text-sm font-semibold">Send</button>
+            <button onClick={() => { setIg(false); setIgErr('') }} className="px-2 text-sm text-mute hover:text-white">Cancel</button>
+          </div>
         ) : (
-          <button onClick={() => setSheet(true)} className="w-full py-2.5 rounded-full btn-flame text-sm font-semibold">{score} of {ROUND_SIZE} matched. {swap?.mine ? "You're in, waiting for them" : 'Swap Instagram'}</button>
+          <button onClick={() => setIg(true)} className="w-full py-2.5 rounded-full border border-line hover:border-white/30 text-sm font-semibold">Share my Instagram</button>
         )}
+        {igErr && <p className="text-flame text-xs mt-1">{igErr}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
@@ -172,7 +141,7 @@ export default function Chat() {
         {messages.map(m => (
           <div key={m.id} className={`flex ${mine(m) ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[78%]">
-              <div className={`px-4 py-2.5 rounded-2xl leading-snug break-words ${mine(m) ? 'btn-flame rounded-br-md' : 'bg-panel border border-line rounded-bl-md'} ${m.pending ? 'opacity-60' : ''}`}>{m.content}</div>
+              <div className={`px-4 py-2.5 rounded-2xl leading-snug break-words ${mine(m) ? 'btn-flame rounded-br-md' : 'bg-panel border border-line rounded-bl-md'} ${m.pending ? 'opacity-60' : ''}`}>{igHandle(m.content) ? <a href={`https://instagram.com/${igHandle(m.content)}`} target="_blank" rel="noreferrer" className="underline">Instagram: @{igHandle(m.content)}</a> : m.content}</div>
               <p className={`text-[11px] mt-1 px-1 text-mute ${mine(m) ? 'text-right' : ''}`}>
                 {m.failed ? <button onClick={() => retry(m)} className="text-flame">Not sent. Tap to edit and resend</button> : m.pending ? 'Sending...' : time(m.created_at)}
               </p>
@@ -182,7 +151,6 @@ export default function Chat() {
         <div ref={bottom} />
       </div>
 
-      {sheet && <ContactSheet matchId={String(id)} token={token.current} name={other?.name || 'them'} asked={!!swap?.signal} onClose={() => { setSheet(false); loadSwap(true) }} />}
 
       <form onSubmit={e => { e.preventDefault(); send() }} className="flex gap-2 px-4 py-3 border-t border-line" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={1000} autoComplete="off"

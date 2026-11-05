@@ -4,7 +4,7 @@ import { admin, findUserId, hashCode, isEdu, normEmail, sendCodeEmail } from '@/
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const email = normEmail(body.email)
-  const purpose = body.purpose === 'reset' ? 'reset' : 'signup'
+  const purpose = body.purpose === 'reset' ? 'reset' : body.purpose === 'waitlist' ? 'waitlist' : 'signup'
   if (!isEdu(email)) return Response.json({ error: 'Please use a valid .edu email.' }, { status: 400 })
 
   const db = admin()

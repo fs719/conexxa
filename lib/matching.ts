@@ -1,5 +1,5 @@
 import { admin } from '@/lib/server'
-import { CASUAL, SERIOUS } from '@/lib/icebreakers'
+import { pickQuestion } from '@/lib/icebreakers'
 
 type DB = ReturnType<typeof admin>
 
@@ -23,8 +23,6 @@ export async function backfillMatches(db: DB, userId: string) {
   const hidden = new Set((bl || []).map(b => (b.blocker_id === userId ? b.blocked_id : b.blocker_id)))
   const mutual = [...new Set((back || []).map(r => r.swiper_id))].filter(id => !hidden.has(id))
 
-  const { data: me } = await db.from('profiles').select('intent').eq('id', userId).maybeSingle()
-  const pool = me?.intent === 'serious' ? SERIOUS : CASUAL
   let created = 0
   for (const other of mutual) {
     const { data: ex } = await db.from('matches').select('id')
@@ -32,7 +30,7 @@ export async function backfillMatches(db: DB, userId: string) {
     if (ex?.length) continue
     const { error } = await db.from('matches').insert({
       user1_id: userId, user2_id: other,
-      icebreaker_prompt: pool[Math.floor(Math.random() * pool.length)].q,
+      icebreaker_prompt: pickQuestion(),
       expires_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
     })
     if (!error) created++

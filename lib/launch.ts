@@ -1,0 +1,56 @@
+import { admin, finishToken, removeToken } from '@/lib/server'
+import { schoolFrom } from '@/lib/school'
+
+type DB = ReturnType<typeof admin>
+
+// Opens a school the moment it reaches its goal. Safe to call many times: only the first call flips it.
+export async function openIfReady(db: DB, domain: string): Promise<boolean> {
+  const { data: s } = await db.from('schools').select('goal,live_at').eq('domain', domain).maybeSingle()
+  if (!s || s.live_at) return false
+  const { count } = await db.from('waitlist').select('email', { count: 'exact', head: true }).eq('school_domain', domain).eq('removed', false)
+  if ((count ?? 0) < s.goal) return false
+  const { data: flipped } = await db.from('schools').update({ live_at: new Date().toISOString() }).eq('domain', domain).is('live_at', null).select('domain')
+  if (!flipped?.length) return false // someone else opened it first
+  await sendPendingLaunchEmails(db, domain)
+  return true
+}
+
+const launchBody = (email: string, hasAccount: boolean, school: string) => {
+  const remove = `https://conexxa.net/api/waitlist/remove?e=${encodeURIComponent(email)}&t=${removeToken(email)}`
+  if (hasAccount)
+    return `${school} is live on Conexxa.\n\nLog in and you're in: https://conexxa.net/login\n\nTo leave the list: ${remove}`
+  return `${school} is live on Conexxa.\n\nOne screen left: set a password, add a photo if you want, and pick who you want to see. Then you're live.\n\nFinish here: https://conexxa.net/finish?e=${encodeURIComponent(email)}&t=${finishToken(email)}\n\nNot interested? Take me off the list: ${remove}`
+}
+
+// Sends the "your school is live" email to everyone on the list who has not had it yet. Retry-safe.
+export async function sendPendingLaunchEmails(db: DB, domain: string): Promise<{ sent: number; failed: number }> {
+  const { data: rows } = await db.from('waitlist').select('email,has_account')
+    .eq('school_domain', domain).eq('removed', false).is('launch_emailed_at', null).limit(5000)
+  const school = schoolFrom(domain) || domain
+  let sent = 0, failed = 0
+  const list = rows || []
+  for (let i = 0; i < list.length; i += 100) {
+    const chunk = list.slice(i, i + 100)
+    const body = chunk.map((r: any) => ({
+      from: 'Conexxa <verify@conexxa.net>',
+      to: [r.email],
+      subject: `${school} is live on Conexxa`,
+      text: launchBody(r.email, r.has_account, school),
+    }))
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
+      await db.from('waitlist').update({ launch_emailed_at: new Date().toISOString() }).in('email', chunk.map((r: any) => r.email))
+      sent += chunk.length
+    } catch (e) {
+      console.error('launch email batch failed', e)
+      failed += chunk.length
+    }
+    if (i + 100 < list.length) await new Promise(r => setTimeout(r, 700))
+  }
+  return { sent, failed }
+}

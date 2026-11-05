@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const email = normEmail(body.email)
   const purpose = body.purpose === 'reset' ? 'reset' : 'signup'
+  if (purpose === 'signup') return bad('Accounts are made from the list now. Get on the list first.')
   const code = String(body.code || '').trim()
   const password = String(body.password || '')
   if (password.length < 6) return bad('Password must be at least 6 characters.')

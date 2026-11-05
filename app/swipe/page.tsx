@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
-import { schoolFrom } from '@/lib/school'
+import { schoolFrom, schoolDomain } from '@/lib/school'
 
-type Profile = { id: string; name: string; age?: number; intent?: string; bio?: string; photo_url?: string; gender?: string; interested_in?: string; school_domain?: string }
+type Profile = { id: string; name: string; age?: number; bio?: string; photo_url?: string; gender?: string; interested_in?: string; school_domain?: string }
 // Flip to true before launch to make a photo mandatory before swiping.
 const REQUIRE_PHOTO = false
 const wants = (interest: string | null | undefined, gender: string | null | undefined) =>
@@ -35,9 +35,13 @@ export default function Swipe() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, intent, gender, interested_in, school_domain').eq('id', user.id).single()
+      const { data: myProfile } = await supabase.from('profiles').select('name, photo_url, gender, interested_in, school_domain').eq('id', user.id).single()
       if (!myProfile?.name) { router.push('/signup'); return }
       setMe(myProfile)
+      // Nothing works until the school has opened.
+      const { data: { session: s0 } } = await supabase.auth.getSession()
+      const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${s0?.access_token}` } }).catch(() => null)
+      if (meRes?.ok && !(await meRes.json()).school.live) { router.replace('/waiting'); return }
       if (REQUIRE_PHOTO && !myProfile.photo_url) { setNeedPhoto(true); setLoading(false); return }
       setShow(myProfile.interested_in || 'everyone')
       uid.current = user.id
@@ -57,28 +61,23 @@ export default function Swipe() {
         ...blockedByIds,
       ])]
 
-      let query = supabase.from('profiles').select('id, name, age, intent, bio, photo_url, gender, interested_in, school_domain').neq('id', user.id)
+      // Discover is your own school only, and nobody who has hidden themselves.
+      const mineBase = schoolDomain(myProfile.school_domain || '')
+      let query = supabase.from('profiles').select('id, name, age, bio, photo_url, gender, interested_in, school_domain').neq('id', user.id).eq('hidden', false)
+        .or(`school_domain.eq.${mineBase},school_domain.like.%.${mineBase}`)
       if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
       const { data } = await query
 
+      // Secret crushes waiting for you are handled on the crush grid, so those people stay out of the deck until you have been through it.
       let boost: string[] = []
       try {
         const { data: { session } } = await supabase.auth.getSession()
         const r = await fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
         boost = (await r.json()).ids || []
       } catch {}
-      setAdmirers(boost.filter(id => !excluded.includes(id)))
-      const mine = (myProfile.school_domain || '')
-      const list = (data || []).filter((p: any) => p.name && p.intent && wants(p.interested_in, myProfile.gender))
-      // Your school first, then everyone else. Each group is shuffled.
-      const shuffle = (a: any[]) => a.sort(() => Math.random() - 0.5)
-      const admirerCards = list.filter((p: any) => boost.includes(p.id))
-      const other = list.filter((p: any) => !boost.includes(p.id))
-      const same = shuffle(other.filter((p: any) => mine && p.school_domain === mine))
-      const rest = shuffle(other.filter((p: any) => !(mine && p.school_domain === mine)))
-      const ordered = [...same, ...rest]
-      // Hide admirers among the first 10 cards at random spots so the order never gives them away.
-      for (const c of admirerCards) ordered.splice(Math.min(ordered.length, 2 + Math.floor(Math.random() * 8)), 0, c)
+      setAdmirers(boost)
+      const list = (data || []).filter((p: any) => p.name && !boost.includes(p.id) && wants(p.interested_in, myProfile.gender))
+      const ordered = list.sort(() => Math.random() - 0.5)
       setPool(ordered)
       setLoading(false)
     }
@@ -171,7 +170,7 @@ export default function Swipe() {
           {[me, match.other].map((p: any, i) => (
             <div key={i} className={`relative w-32 h-32 rounded-full overflow-hidden border-4 border-ink bg-raised flex items-center justify-center text-5xl ${i ? '-ml-6' : ''}`}
               style={{ boxShadow: `0 0 0 2px rgba(${tone},.7), 0 0 30px rgba(${tone},.35)` }}>
-              {p?.photo_url ? <img src={p.photo_url} alt="" className={`w-full h-full object-cover ${i && p.intent !== 'serious' ? 'unblur' : ''}`} /> : (p?.name || '?')[0].toUpperCase()}
+              {p?.photo_url ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" /> : (p?.name || '?')[0].toUpperCase()}
             </div>
           ))}
         </div>
@@ -186,17 +185,16 @@ export default function Swipe() {
   }
 
   const profile = profiles[0]
-  const mystery = profile?.intent !== 'serious'
 
   if (!profile) return (
     <main className="min-h-dvh bg-ink text-white pb-24">
       <div className="max-w-md mx-auto px-4 pt-4"><Switch show={show} choose={choose} /></div>
-      {admirers.some(id => !seen.includes(id)) && (
-        <p className="max-w-md mx-auto mt-3 mx-4 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. Switch to Both to find out who.</p>
+      {admirers.length > 0 && (
+        <Link href="/crush/reveal" className="block max-w-md mx-auto mt-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. See who it could be</Link>
       )}
       <div className="max-w-md mx-auto px-6 pt-24 text-center space-y-5">
         <h1 className="text-3xl font-bold">You're all caught up</h1>
-        <p className="text-mute">New people join every day. Invite a friend and you'll both see more profiles.</p>
+        <p className="text-mute">New people join every day. Invite a friend and the deck grows.</p>
         <InviteButton />
         <div><Link href="/crush" className="crush-edge inline-block mt-1 px-8 py-3 rounded-full font-semibold bg-panel border border-line text-crush">Send a secret crush</Link></div>
       </div>
@@ -213,12 +211,11 @@ export default function Swipe() {
         <div className="flex items-center justify-between mb-3 px-1">
           <h1 className="text-2xl font-bold">Conexxa</h1>
           <div className="flex items-center gap-4">
-            <Link href="/crush" className="crush-edge text-sm font-medium px-3 py-1 rounded-full bg-panel border border-line text-crush">Secret crush</Link>
             <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
           </div>
         </div>
-        {admirers.some(id => !seen.includes(id)) && (
-          <p className="mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. Keep swiping to find out who.</p>
+        {admirers.length > 0 && (
+          <Link href="/crush/reveal" className="block mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. See who it could be</Link>
         )}
         <div className="mb-3"><Switch show={show} choose={choose} /></div>
 
@@ -229,18 +226,15 @@ export default function Swipe() {
         >
           <div className="aspect-[3/4] w-full bg-raised flex items-center justify-center">
             {profile.photo_url
-              ? <img src={profile.photo_url} alt={mystery ? '' : profile.name} draggable={false} className={`w-full h-full object-cover pointer-events-none ${mystery ? 'blur-2xl scale-125' : ''}`} />
+              ? <img src={profile.photo_url} alt={profile.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
               : <span className="text-8xl font-display text-mute">{profile.name[0].toUpperCase()}</span>}
           </div>
           <div className="absolute inset-x-0 bottom-0 p-5 pt-24 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
             <div className="flex items-baseline gap-2">
-              <h2 className="text-3xl font-bold">{mystery ? 'Mystery' : profile.name}</h2>
+              <h2 className="text-3xl font-bold">{profile.name}</h2>
               {profile.age ? <span className="text-xl text-white/80">{profile.age}</span> : null}
             </div>
-            <span className="inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">
-              {profile.intent === 'serious' ? 'Looking for something serious' : 'Keeping it casual'}
-            </span>
-            {schoolFrom(profile.school_domain) && <span className="inline-block mt-1 ml-2 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">✓ {schoolFrom(profile.school_domain)}</span>}
+            {schoolFrom(profile.school_domain) && <span className="inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/15 backdrop-blur">✓ {schoolFrom(profile.school_domain)}</span>}
             {profile.bio && <p className="mt-3 text-white/90 leading-snug">{profile.bio}</p>}
           </div>
           <button onPointerDown={e => e.stopPropagation()} onClick={know}

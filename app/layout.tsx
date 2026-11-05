@@ -21,7 +21,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Conexxa",
-  description: "Find your match. Unlock the conversation. For college students.",
+  description: "Send a secret crush to someone at your school. For college students.",
+  appleWebApp: { capable: true, title: "Conexxa", statusBarStyle: "black-translucent" },
 };
 
 export default function RootLayout({

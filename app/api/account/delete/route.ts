@@ -19,6 +19,8 @@ export async function POST(req: Request) {
   await db.from('blocks').delete().or(`blocker_id.eq.${id},blocked_id.eq.${id}`)
   await db.from('crushes').delete().eq('sender_id', id)
   if (user.email) await db.from('crushes').delete().eq('target_email', user.email.toLowerCase())
+  if (user.email) await db.from('waitlist').delete().eq('email', user.email.toLowerCase())
+  await db.from('crush_grids').delete().eq('user_id', id)
   await db.from('profiles').delete().eq('id', id)
 
   const { data: files } = await db.storage.from('avatars').list(id)

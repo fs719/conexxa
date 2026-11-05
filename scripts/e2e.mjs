@@ -2,6 +2,7 @@
 // Run by GitHub Actions (.github/workflows/e2e.yml). Needs the Supabase keys as environment variables.
 import { createClient } from '@supabase/supabase-js'
 import { optionsFor } from '../lib/icebreakers.ts'
+import { hashCode, finishToken, removeToken } from '../lib/server.ts'
 
 let BASE = process.env.BASE_URL || 'https://conexxa.net'
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -15,8 +16,8 @@ const ok = (name, cond, extra = '') => { if (cond) { pass++; console.log('PASS',
 const stamp = Date.now()
 const made = []
 
-async function mkUser(tag, gender, intent) {
-  const email = `e2e-${stamp}-${tag}@e2e-test.edu`
+async function mkUser(tag, gender, intent, school = 'e2e-test.edu') {
+  const email = `e2e-${stamp}-${tag}@${school}`
   const password = `E2e!${stamp}${tag}`
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
   if (error) throw new Error(`createUser ${tag}: ${error.message}`)
@@ -43,7 +44,7 @@ async function main() {
   // The site redirects between conexxa.net and www.conexxa.net, and redirects drop the login header. Use the final address.
   { const r = await fetch(BASE); BASE = new URL(r.url).origin; console.log('INFO testing against', BASE) }
   // Pages load
-  for (const p of ['/', '/signup', '/login', '/terms', '/privacy', '/swipe', '/matches', '/crush', '/forgot-password']) {
+  for (const p of ['/', '/signup', '/login', '/terms', '/privacy', '/swipe', '/matches', '/crush', '/crush/reveal', '/finish', '/waiting', '/dashboard', '/forgot-password']) {
     const r = await text(p); ok(`page ${p} loads`, r.status === 200, `status ${r.status}`)
   }
   ok('crush landing page text', (await text('/?from=crush')).body.includes('Someone has a crush on you'))
@@ -61,6 +62,9 @@ async function main() {
   }
   console.log('INFO test keys project:', host, '| live site project(s):', [...hosts].join(', ') || 'not found')
   ok('live site uses the same Supabase project as the test keys', hosts.has(host))
+
+  // The fake school is open; the "closed" school is not. Both are removed at the end.
+  await admin.from('schools').upsert([{ domain: 'e2e-test.edu', goal: 70, live_at: new Date().toISOString() }, { domain: 'e2e-closed.edu', goal: 70, live_at: null }, { domain: 'e2e-wait.edu', goal: 3, live_at: null }])
 
   const A = await mkUser('a', 'Male', 'casual')
   const B = await mkUser('b', 'Female', 'casual')
@@ -120,10 +124,11 @@ async function main() {
     made.push(cu.user.id)
     const cl = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
     await cl.auth.signInWithPassword({ email, password })
-    const row = { name: 'E2E signup', gender: 'Male', interested_in: 'e2e-hidden', intent: 'casual', bio: 'x', age: 21 }
-    const { data: ex } = await cl.from('profiles').select('id').eq('id', cu.user.id).maybeSingle()
+    const row = { name: 'E2E signup', gender: 'Male', interested_in: 'e2e-hidden', intent: 'serious', bio: 'x', age: 21 }
     const ins = await cl.from('profiles').insert({ id: cu.user.id, ...row, edu_email: 'liar@harvard.edu' })
-    ok('signup can create the profile', !ins.error && !ex, ins.error?.message || '')
+    ok('a logged-in user cannot create a profile straight in the database (only the finish screen can)', !!ins.error, 'insert succeeded')
+    const mk = await admin.from('profiles').insert({ id: cu.user.id, ...row, edu_email: email })
+    ok('server can create the profile', !mk.error, mk.error?.message || '')
     const { data: made1 } = await admin.from('profiles').select('edu_email').eq('id', cu.user.id).single()
     ok('signup email is forced to the verified one', made1?.edu_email === email, `now ${made1?.edu_email}`)
     const upd = await cl.from('profiles').update({ ...row, name: 'E2E signup 2', photo_url: 'https://example.com/a.jpg' }).eq('id', cu.user.id)
@@ -177,27 +182,11 @@ async function main() {
     await admin.storage.from('avatars').remove([`${B.id}/avatar.png`])
   }
 
-  // Vibe check
-  ok('vibe check rejects bad input', (await post('/api/round', A.token, { matchId, level: 1, answers: [9, 9, 9] })).status === 400)
-  const r1 = await post('/api/round', A.token, { matchId, level: 1, answers: [0, 0, 0] })
-  ok('first vibe answer saved, hidden from other', r1.status === 200 && r1.j.rounds[0].iDone && !r1.j.rounds[0].both, JSON.stringify(r1.j))
-  ok('cannot answer twice', (await post('/api/round', A.token, { matchId, level: 1, answers: [1, 1, 1] })).status === 409)
-  const r2 = await post('/api/round', B.token, { matchId, level: 1, answers: [0, 1, 0] })
-  ok('both answers revealed after both finish', r2.j?.rounds?.[0]?.both?.theirs?.join() === '0,0,0' && r2.j.rounds[0].both.mine.join() === '0,1,0', JSON.stringify(r2.j))
-
-  // Contact swap, both at the same instant
-  ok('bad instagram rejected', (await post('/api/contact', A.token, { matchId, kind: 'instagram', value: 'no spaces allowed' })).status === 400)
-  const [c1, c2] = await Promise.all([
-    post('/api/contact', A.token, { matchId, kind: 'instagram', value: '@e2e.user' }),
-    post('/api/contact', B.token, { matchId, kind: 'phone', value: '(202) 555-0123' }),
-  ])
-  ok('simultaneous contact opt-ins both succeed', c1.status === 200 && c2.status === 200, `${c1.status} ${c2.status}`)
-  const va = await api(`/api/contact?matchId=${matchId}`, A.token)
-  const vb = await api(`/api/contact?matchId=${matchId}`, B.token)
-  ok('A sees B phone, normalized', va.j?.theirs?.value === '+12025550123', JSON.stringify(va.j))
-  { const sw = await api('/api/swaps', A.token); ok('swapped list shows the match once both opted in', sw.j?.swapped?.includes(B.id), JSON.stringify(sw.j)) }
-  ok('B sees A instagram', vb.j?.theirs?.value === 'e2e.user', JSON.stringify(vb.j))
-  ok('cannot take back after both opted in', (await api('/api/contact', A.token, { method: 'DELETE', body: JSON.stringify({ matchId }) })).status === 409)
+  // Share Instagram: one tap sends it into the chat as a message
+  ok('instagram share goes through as a chat message', (await post('/api/messages', A.token, { matchId, content: 'My Instagram: @e2e.user' })).status === 200)
+  const gotIg = await api(`/api/messages?matchId=${matchId}`, B.token)
+  ok('other person sees the shared Instagram', gotIg.j?.messages?.some(m => m.content === 'My Instagram: @e2e.user'))
+  ok('old swap and vibe-check routes are gone', (await api('/api/contact', A.token)).status === 404 && (await api('/api/round', A.token)).status === 404 && (await api('/api/swaps', A.token)).status === 404)
 
   // Quiet unmatch
   ok('unmatch works', (await post('/api/unmatch', A.token, { matchId })).j?.ok === true)
@@ -208,9 +197,79 @@ async function main() {
   ok('match does not come back after backfill', back?.length === 0, `rows ${back?.length}`)
   ok('outsider cannot unmatch', (await post('/api/unmatch', C.token, { matchId })).status === 404)
 
-  // Secret crush (target already has an account, so no email is sent)
+  // School gate: a school that has not opened can do nothing
+  {
+    const Z = await mkUser('z', 'Male', 'serious', 'e2e-closed.edu')
+    ok('closed school cannot swipe', (await post('/api/swipe', Z.token, { swipedId: A.id, direction: 'like' })).status === 403)
+    ok('closed school cannot send a crush', (await post('/api/crush', Z.token, { email: `x@e2e-closed.edu` })).status === 403)
+    const me = await api('/api/me', Z.token)
+    ok('/api/me says the school is closed', me.j?.school?.live === false, JSON.stringify(me.j))
+    const meA = await api('/api/me', A.token)
+    ok('/api/me says an open school is open', meA.j?.school?.live === true, JSON.stringify(meA.j))
+  }
+
+  // Waitlist: join, count, open at the goal, finish screen, remove link
+  {
+    const mkCode = async (email) => admin.from('email_codes').upsert({ email, purpose: 'waitlist', code_hash: hashCode('123456', email, 'waitlist'), expires_at: new Date(Date.now() + 600000).toISOString(), attempts: 0, created_at: new Date().toISOString() })
+    const E = n => `e2e-${stamp}-${n}@e2e-wait.edu`
+    const body = (email, extra = {}) => ({ email, code: '123456', name: 'Wendy', gender: 'Female', adult: true, ...extra })
+    await mkCode(E('w1'))
+    ok('join rejects a wrong code', (await post('/api/waitlist/join', null, body(E('w1'), { code: '000000' }))).status === 400)
+    ok('join needs the 18+ box', (await post('/api/waitlist/join', null, body(E('w1'), { adult: false }))).status === 400)
+    ok('join rejects a non-college email', (await post('/api/waitlist/join', null, body('nobody@gmail.com'))).status === 400)
+    await mkCode(E('w1'))
+    const j1 = await post('/api/waitlist/join', null, body(E('w1')))
+    ok('joining puts you on the list, school not open', j1.status === 200 && j1.j?.school?.live === false && j1.j.school.count === 1 && j1.j.school.goal === 3 && !j1.j.finish, JSON.stringify(j1))
+    ok('code cannot be used twice', (await post('/api/waitlist/join', null, body(E('w1')))).status === 400)
+    // keep the test from sending real emails: these rows count as already emailed
+    await admin.from('waitlist').update({ launch_emailed_at: new Date().toISOString() }).eq('email', E('w1'))
+    await admin.from('waitlist').upsert([
+      { email: E('w2'), school_domain: 'e2e-wait.edu', first_name: 'Wen', gender: 'Female', launch_emailed_at: new Date().toISOString() },
+      { email: E('w3'), school_domain: 'e2e-wait.edu', first_name: 'Wes', gender: 'Male', launch_emailed_at: new Date().toISOString() },
+    ])
+    const board = await api('/api/schools?email=' + encodeURIComponent(E('w1')), null)
+    ok('leaderboard shows school names and counts only', board.status === 200 && board.j.mine?.count === 3 && !JSON.stringify(board.j).includes('Wendy') && !JSON.stringify(board.j).includes('@'), JSON.stringify(board.j))
+    ok('finish link with a bad token is refused', (await api(`/api/finish?e=${encodeURIComponent(E('w3'))}&t=bad`, null)).status === 403)
+    const early = await post('/api/finish', null, { email: E('w3'), token: finishToken(E('w3')), password: 'E2e!pass1', birthdate: '2000-01-01', interested_in: 'Female', agreed: true })
+    ok('finish before the school opens is refused', early.status === 403, JSON.stringify(early))
+    await mkCode(E('w3'))
+    const j3 = await post('/api/waitlist/join', null, body(E('w3'), { name: 'Wes', gender: 'Male' }))
+    ok('reaching the goal opens the school and hands over the finish link', j3.status === 200 && j3.j?.school?.live === true && !!j3.j.finish, JSON.stringify(j3))
+    const { data: sch } = await admin.from('schools').select('live_at').eq('domain', 'e2e-wait.edu').single()
+    ok('school is marked open in the database', !!sch?.live_at)
+    const fin = await api(`/api/finish?e=${encodeURIComponent(E('w3'))}&t=${finishToken(E('w3'))}`, null)
+    ok('finish screen knows the first name', fin.status === 200 && fin.j?.name === 'Wes' && fin.j.live === true, JSON.stringify(fin))
+    const fp = { email: E('w3'), token: finishToken(E('w3')), password: 'E2e!pass1', birthdate: '2000-01-01', interested_in: 'Female', agreed: true }
+    ok('finish refuses under 18', (await post('/api/finish', null, { ...fp, birthdate: new Date(Date.now() - 17 * 365 * 86400000).toISOString().slice(0, 10) })).status === 400)
+    ok('finish needs the terms box', (await post('/api/finish', null, { ...fp, agreed: false })).status === 400)
+    ok('finish needs a real password', (await post('/api/finish', null, { ...fp, password: '123' })).status === 400)
+    const done = await post('/api/finish', null, fp)
+    ok('finishing creates the account', done.status === 200 && done.j?.ok === true, JSON.stringify(done))
+    const { data: au } = await admin.from('profiles').select('id,name,gender,interested_in,age,hidden,edu_email').eq('edu_email', E('w3')).maybeSingle()
+    if (au) made.push(au.id)
+    ok('profile has the sign-up answers and is not hidden', au?.name === 'Wes' && au.gender === 'Male' && au.interested_in === 'Female' && au.age >= 25 && au.hidden === false, JSON.stringify(au))
+    const anonW = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { error: lw } = await anonW.auth.signInWithPassword({ email: E('w3'), password: 'E2e!pass1' })
+    ok('the new account can log in', !lw, lw?.message)
+    ok('finishing twice is refused', (await post('/api/finish', null, fp)).status === 409)
+    const rmPage = await text(`/api/waitlist/remove?e=${encodeURIComponent(E('w2'))}&t=${removeToken(E('w2'))}`)
+    ok('remove link shows a confirm button and removes nobody yet', rmPage.body.includes('Remove me') && (await admin.from('waitlist').select('removed').eq('email', E('w2')).single()).data.removed === false)
+    ok('remove link with a bad token is refused', (await text(`/api/waitlist/remove?e=${encodeURIComponent(E('w2'))}&t=bad`)).body.includes('not valid'))
+    const rf = new FormData(); rf.set('e', encodeURIComponent(E('w2'))); rf.set('t', removeToken(E('w2')))
+    await fetch(BASE + '/api/waitlist/remove', { method: 'POST', body: rf })
+    ok('confirming removes you from the list and the count', (await admin.from('waitlist').select('removed').eq('email', E('w2')).single()).data.removed === true && (await api('/api/schools?email=' + encodeURIComponent(E('w1')), null)).j.mine.count === 2)
+    const rmFin = await api(`/api/finish?e=${encodeURIComponent(E('w2'))}&t=${finishToken(E('w2'))}`, null)
+    ok('a removed person cannot finish', rmFin.status === 410, JSON.stringify(rmFin))
+    await admin.from('waitlist').delete().like('email', `e2e-${stamp}-%@e2e-wait.edu`)
+  }
+
+  // Secret crush grid. B sends one to C. Both have accounts at the same open school, plus fillers so the grid is big enough.
   ok('crush rejects non-college email', (await post('/api/crush', B.token, { email: 'someone@gmail.com' })).status === 400)
   ok('crush rejects own email', (await post('/api/crush', B.token, { email: B.email })).status === 400)
+  ok('crush must stay inside your own school', (await post('/api/crush', B.token, { email: 'someone@harvard.edu' })).status === 400)
+  const fillers = []
+  for (let i = 0; i < 8; i++) fillers.push(await mkUser(`f${i}`, 'Female', 'serious'))
+  await admin.from('profiles').update({ hidden: true }).eq('id', fillers[0].id)
   const cr = await post('/api/crush', B.token, { email: C.email })
   ok('crush saves', cr.status === 200 && cr.j?.ok === true, JSON.stringify(cr))
   ok('duplicate crush rejected', (await post('/api/crush', B.token, { email: C.email })).status === 400)
@@ -218,41 +277,68 @@ async function main() {
   ok('sender sees it as Sent', list.j?.crushes?.[0]?.status === 'sent' && list.j.left === 2, JSON.stringify(list.j))
   const inbox = await api('/api/crush?inbox=1', C.token)
   ok('receiver inbox has the sender, no extras', inbox.j?.ids?.length === 1 && inbox.j.ids[0] === B.id, JSON.stringify(inbox.j))
-  const { data: stored } = await admin.from('swipes').select('direction').eq('swiper_id', B.id).eq('swiped_id', C.id)
-  ok('crush is stored as a like', stored?.[0]?.direction === 'like', JSON.stringify(stored))
-  const m3 = await post('/api/swipe', C.token, { swipedId: B.id, direction: 'like' })
-  ok('liking the admirer back matches instantly', m3.j?.matched === true, JSON.stringify(m3))
-  ok('receiver is told it came from a crush', m3.j?.crush === 'theirs', JSON.stringify(m3.j))
+  const meC = await api('/api/me', C.token)
+  ok('/api/me says a crush is waiting', meC.j?.pending === true, JSON.stringify(meC.j))
+  { const { data: early } = await admin.from('matches').select('id').or(`and(user1_id.eq.${B.id},user2_id.eq.${C.id}),and(user1_id.eq.${C.id},user2_id.eq.${B.id})`)
+    ok('no match exists before the receiver picks', !early?.length) }
+  ok('no grid for someone with nothing waiting', (await api('/api/crush/grid', A.token)).j?.grid === null)
+  const g = await api('/api/crush/grid', C.token)
+  const ids = (g.j?.grid || []).map(c => c.id)
+  ok('grid has up to 10 schoolmates with the sender in it', ids.length >= 6 && ids.length <= 10 && ids.includes(B.id) && g.j.max === 3, JSON.stringify(ids))
+  ok('grid never includes you or a hidden person', !ids.includes(C.id) && !ids.includes(fillers[0].id), JSON.stringify(ids))
+  ok('grid shows only name, age and photo', (g.j.grid || []).every(c => Object.keys(c).every(k => ['id', 'name', 'age', 'photo_url'].includes(k))), JSON.stringify(g.j.grid?.[0]))
+  ok('everyone in the grid is the sender\'s gender, so nobody stands out', (g.j.grid || []).every(c => c.id === B.id || fillers.some(f => f.id === c.id)))
+  const g2 = await api('/api/crush/grid', C.token)
+  ok('same grid on refresh', JSON.stringify(g2.j.grid.map(c => c.id).sort()) === JSON.stringify([...ids].sort()))
+  const others = ids.filter(i => i !== B.id)
+  ok('more than 3 picks refused', (await post('/api/crush/grid', C.token, { picks: ids.slice(0, 4) })).status === 400)
+  ok('picking someone who was not in the grid is refused', (await post('/api/crush/grid', C.token, { picks: [A.id] })).status === 400)
+  const pk = await post('/api/crush/grid', C.token, { picks: [B.id, others[0], others[1]] })
+  ok('tapping the sender makes the match', pk.status === 200 && pk.j?.matches?.length === 1 && pk.j.matches[0].crush === 'theirs', JSON.stringify(pk))
+  const m3 = { j: { id: pk.j?.matches?.[0]?.id } }
+  ok('grid cannot be submitted twice', (await post('/api/crush/grid', C.token, { picks: [B.id] })).status === 409)
+  ok('crush no longer shows as waiting', (await api('/api/me', C.token)).j?.pending === false)
   const rolesB = await api('/api/crush?matches=1', B.token)
   const rolesC = await api('/api/crush?matches=1', C.token)
   ok('sender sees "your crush liked you back"', rolesB.j?.roles?.[C.id] === 'mine', JSON.stringify(rolesB.j))
   ok('receiver sees "they had a crush on you"', rolesC.j?.roles?.[B.id] === 'theirs', JSON.stringify(rolesC.j))
   const rolesA = await api('/api/crush?matches=1', A.token)
   ok('a normal match is not labelled a crush', !Object.keys(rolesA.j?.roles || {}).length, JSON.stringify(rolesA.j))
-  { // unlock the crush match chat so the contact swap can be tested
+  { // the one question, then chat
     const { data: cm } = await admin.from('matches').select('icebreaker_prompt').eq('id', m3.j.id).single()
     const co = optionsFor(cm?.icebreaker_prompt)
     await post('/api/icebreaker', B.token, { matchId: m3.j.id, answer: co[0] })
     const un = await post('/api/icebreaker', C.token, { matchId: m3.j.id, answer: co[1] })
-    ok('crush match chat unlocks', un.j?.unlocked === true, JSON.stringify(un))
+    ok('crush match chat unlocks after one question each', un.j?.unlocked === true, JSON.stringify(un))
   }
-  const solo = await post('/api/contact', B.token, { matchId: m3.j.id, kind: 'instagram', value: 'solo.opt' })
-  ok('one person can opt in alone', solo.status === 200, JSON.stringify(solo))
-  const soloC = await api('/api/swaps', C.token), soloB = await api('/api/swaps', B.token)
-  const cView = await api(`/api/contact?matchId=${m3.j.id}`, C.token)
-  ok('one-sided opt-in gives the other person a nudge only, no contact details', !soloC.j?.swapped?.includes(B.id) && !cView.j?.theirs && !cView.j?.mine && cView.j?.signal === true && soloC.j?.asked?.includes(m3.j.id) && !JSON.stringify(cView.j).includes('solo.opt'), JSON.stringify({ soloC: soloC.j, cView: cView.j }))
-  const bView = await api(`/api/contact?matchId=${m3.j.id}`, B.token)
-  ok('the person who opted in gets no signal about themselves', bView.j?.signal === false && !soloB.j?.asked?.includes(m3.j.id), JSON.stringify(bView.j))
-  ok('one-sided opt-in is not a full swap for the sender either', !soloB.j?.swapped?.includes(C.id), JSON.stringify(soloB.j))
   const list2 = await api('/api/crush', B.token)
   ok('sender now sees It is a match', list2.j?.crushes?.[0]?.status === 'matched', JSON.stringify(list2.j))
 
+  // Passing on the grid: no match, sender never knows
+  {
+    const D = fillers[1], Eu = fillers[2]
+    const c2 = await post('/api/crush', D.token, { email: A.email })
+    ok('second crush saves', c2.status === 200, JSON.stringify(c2))
+    const gg = await api('/api/crush/grid', A.token)
+    const gids = (gg.j?.grid || []).map(c => c.id)
+    ok('grid for the second crush includes its sender', gids.includes(D.id) && gids.length >= 6, JSON.stringify(gids))
+    const none = await post('/api/crush/grid', A.token, { picks: gids.filter(i => i !== D.id).slice(0, 2) })
+    ok('picking others means no match', none.status === 200 && none.j?.matches?.length === 0, JSON.stringify(none))
+    const { data: still } = await admin.from('matches').select('id').or(`and(user1_id.eq.${D.id},user2_id.eq.${A.id}),and(user1_id.eq.${A.id},user2_id.eq.${D.id})`)
+    ok('no match was made', !still?.length)
+    await api('/api/swipe', A.token); await api('/api/swipe', D.token)
+    const { data: still2 } = await admin.from('matches').select('id').or(`and(user1_id.eq.${D.id},user2_id.eq.${A.id}),and(user1_id.eq.${A.id},user2_id.eq.${D.id})`)
+    ok('no match appears later either', !still2?.length)
+    ok('the sender is out of Discover for the receiver', (await admin.from('swipes').select('direction').eq('swiper_id', A.id).eq('swiped_id', D.id).single()).data?.direction === 'skip')
+    void Eu
+  }
+
   // Account deletion
-  for (const u of [A, B, C]) {
+  for (const u of [A, B, C, ...fillers]) {
     const d = await post('/api/account/delete', u.token, {})
     ok(`delete account ${u.email.split('@')[0].slice(-1)}`, d.status === 200, JSON.stringify(d))
   }
-  const { data: left } = await admin.from('profiles').select('id').in('id', [A.id, B.id, C.id])
+  const { data: left } = await admin.from('profiles').select('id').in('id', [A.id, B.id, C.id, ...fillers.map(f => f.id)])
   ok('no profiles left behind', left?.length === 0)
 }
 
@@ -261,6 +347,7 @@ finally {
   // Always clean up fake people, even if a step crashed.
   for (const id of made) {
     await admin.from('crushes').delete().eq('sender_id', id)
+    await admin.from('crush_grids').delete().eq('user_id', id)
     await admin.from('swipes').delete().or(`swiper_id.eq.${id},swiped_id.eq.${id}`)
     await admin.from('blocks').delete().or(`blocker_id.eq.${id},blocked_id.eq.${id}`)
     const { data: ms } = await admin.from('matches').select('id').or(`user1_id.eq.${id},user2_id.eq.${id}`)
@@ -274,6 +361,8 @@ finally {
     await admin.from('profiles').delete().eq('id', id)
     await admin.auth.admin.deleteUser(id)
   }
+  await admin.from('waitlist').delete().like('email', `e2e-${stamp}-%`)
+  await admin.from('schools').delete().in('domain', ['e2e-closed.edu', 'e2e-wait.edu'])
   console.log(`\n${pass} passed, ${fail} failed`)
   process.exit(fail ? 1 : 0)
 }
