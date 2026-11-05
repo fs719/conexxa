@@ -39,12 +39,21 @@ alter table public.crush_grids enable row level security;
 alter table public.profiles add column if not exists hidden boolean not null default false;
 
 -- Who someone wants to see is private. Other students can no longer read it straight from the database; the server uses it to pick the deck.
-revoke select (interested_in) on public.profiles from authenticated;
-revoke select (hidden) on public.profiles from authenticated;
+-- Rebuilt as a full column list (like lockdown.sql), so it works whether or not lockdown.sql ran before, and running it twice is safe.
+do $$
+declare cols text;
+begin
+  select string_agg(quote_ident(column_name), ',') into cols
+  from information_schema.columns
+  where table_schema = 'public' and table_name = 'profiles' and column_name not in ('edu_email', 'interested_in', 'hidden');
+  revoke select on public.profiles from anon, authenticated;
+  execute format('grant select (%s) on public.profiles to authenticated', cols);
+end $$;
 
 -- A match that came from a secret crush is marked when the grid creates it (and only then), so an ordinary match can never be mistaken for one.
 alter table public.matches add column if not exists crush_sender uuid;
 
+-- Run order: crush.sql and lockdown.sql first (this file needs the crushes table), then this file. Safe to run again.
 -- Existing accounts count toward their school's goal.
 insert into public.waitlist (email, school_domain, first_name, gender, has_account, launch_emailed_at)
 select lower(edu_email),
@@ -52,6 +61,7 @@ select lower(edu_email),
        coalesce(name, ''), coalesce(gender, ''), true, now()
 from public.profiles
 where edu_email is not null and edu_email like '%@%'
+  and (regexp_match(split_part(lower(edu_email), '@', 2), '([^.]+\.[^.]+)$'))[1] is not null
 on conflict (email) do nothing;
 
 insert into public.schools (domain)

@@ -3,6 +3,8 @@ import { sendPendingLaunchEmails } from '@/lib/launch'
 
 // Owner-only. Re-sends any launch emails that failed, or opens a school by hand. Needs ADMIN_SECRET; without it this route does nothing.
 // POST { domain: "psu.edu", open?: true }  with  Authorization: Bearer <ADMIN_SECRET>
+export const maxDuration = 300 // launch emails go out after the response and can take a while
+
 export async function POST(req: Request) {
   const secret = process.env.ADMIN_SECRET
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) return new Response('Not found', { status: 404 })

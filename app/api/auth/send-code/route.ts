@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   const email = normEmail(body.email)
   const purpose = body.purpose === 'reset' ? 'reset' : body.purpose === 'waitlist' ? 'waitlist' : 'signup'
   if (!isEdu(email) || (purpose === 'waitlist' && !email.endsWith('.edu'))) return Response.json({ error: 'Please use your school (.edu) email.' }, { status: 400 })
+  if (purpose === 'waitlist' && email.split('@')[0].includes('+')) return Response.json({ error: 'Please use your regular school email, without a + in it.' }, { status: 400 })
 
   const db = admin()
   const since = new Date(Date.now() - 3600_000).toISOString()

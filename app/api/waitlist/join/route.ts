@@ -8,6 +8,8 @@ const bad = (error: string, status = 400) => Response.json({ error }, { status }
 const GENDERS = ['Male', 'Female', 'Non-Binary', 'Prefer Not to Say']
 
 // Step 2 of joining: the emailed code is checked, then the person goes on the list. No password, no account yet.
+export const maxDuration = 300 // launch emails go out after the response and can take a while
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const email = normEmail(body.email)
@@ -15,6 +17,7 @@ export async function POST(req: Request) {
   const name = String(body.name || '').trim().slice(0, 30)
   const gender = String(body.gender || '')
   if (!isEdu(email) || !email.endsWith('.edu')) return bad('Please use your school (.edu) email.')
+  if (email.split('@')[0].includes('+')) return bad('Please use your regular school email, without a + in it.')
   if (!name) return bad('Please enter your first name.')
   if (!GENDERS.includes(gender)) return bad('Please pick one of the options.')
   if (body.adult !== true) return bad('You must be 18 or older to join.')

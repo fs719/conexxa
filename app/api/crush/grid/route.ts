@@ -43,8 +43,8 @@ export async function GET(req: Request) {
   if (!senderIds.length) return Response.json({ grid: null, reason: 'none' })
 
   // Senders who are visible at this school. A hidden sender waits, exactly as a decoy who is hidden is left out.
-  const { data: sp } = await db.from('profiles').select('id,gender,hidden,name,school_domain').in('id', senderIds)
-  const senders = (sp || []).filter((p: P) => p.name && !p.hidden && schoolDomain(p.school_domain) === school.domain)
+  const { data: sp } = await db.from('profiles').select('id,gender,hidden,name,interested_in,school_domain').in('id', senderIds)
+  const senders = (sp || []).filter((p: P) => p.name && !p.hidden && wants(p.interested_in, me.gender) && schoolDomain(p.school_domain) === school.domain)
   if (!senders.length) return Response.json({ grid: null, reason: 'none' })
 
   const { data: pool } = await db.from('profiles').select('id,gender,hidden,name,interested_in,school_domain')

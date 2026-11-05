@@ -57,5 +57,6 @@ export async function GET(req: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return Response.json({ error: 'Not signed in.' }, { status: 401 })
+  if (!(await mySchool(db, user.email)).live || !(await profileOf(db, user.id))) return Response.json({ created: 0 })
   return Response.json({ created: await backfillMatches(db, user.id) })
 }
