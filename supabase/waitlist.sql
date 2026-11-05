@@ -57,3 +57,8 @@ alter table public.crushes add column if not exists revealed_at timestamptz;
 
 -- Profiles are now only created by the server's finish screen, so nobody can skip the waiting list by writing their own.
 revoke insert on public.profiles from anon, authenticated;
+
+-- A school that already has its goal in existing accounts opens right away (those people already have accounts, so nobody needs an email).
+update public.schools s set live_at = now()
+where live_at is null
+  and (select count(*) from public.waitlist w where w.school_domain = s.domain and not w.removed) >= s.goal;

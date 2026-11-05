@@ -17,7 +17,7 @@ export default function Swipe() {
   const [pool, setPool] = useState<Profile[]>([])
   const [seen, setSeen] = useState<string[]>([])
   const [show, setShow] = useState<string>('everyone')
-  const [admirers, setAdmirers] = useState<string[]>([])
+  const [waiting, setWaiting] = useState(false)
   const [needPhoto, setNeedPhoto] = useState(false)
   const [upBusy, setUpBusy] = useState(false)
   const [upErr, setUpErr] = useState('')
@@ -64,19 +64,17 @@ export default function Swipe() {
       // Discover is your own school only, and nobody who has hidden themselves.
       const mineBase = schoolDomain(myProfile.school_domain || '')
       let query = supabase.from('profiles').select('id, name, age, bio, photo_url, gender, interested_in, school_domain').neq('id', user.id).eq('hidden', false)
-        .or(`school_domain.eq.${mineBase},school_domain.like.%.${mineBase}`)
+        .or(`school_domain.eq.${mineBase},school_domain.like.*.${mineBase}`)
       if (excluded.length > 0) query = query.not('id', 'in', `(${excluded.join(',')})`)
       const { data } = await query
 
-      // Secret crushes waiting for you are handled on the crush grid, so those people stay out of the deck until you have been through it.
-      let boost: string[] = []
+      // A secret crush waiting for you is answered on the crush grid. Here we only learn that one exists.
       try {
         const { data: { session } } = await supabase.auth.getSession()
         const r = await fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-        boost = (await r.json()).ids || []
+        setWaiting(!!(await r.json()).waiting)
       } catch {}
-      setAdmirers(boost)
-      const list = (data || []).filter((p: any) => p.name && !boost.includes(p.id) && wants(p.interested_in, myProfile.gender))
+      const list = (data || []).filter((p: any) => p.name && wants(p.interested_in, myProfile.gender))
       const ordered = list.sort(() => Math.random() - 0.5)
       setPool(ordered)
       setLoading(false)
@@ -189,7 +187,7 @@ export default function Swipe() {
   if (!profile) return (
     <main className="min-h-dvh bg-ink text-white pb-24">
       <div className="max-w-md mx-auto px-4 pt-4"><Switch show={show} choose={choose} /></div>
-      {admirers.length > 0 && (
+      {waiting && (
         <Link href="/crush/reveal" className="block max-w-md mx-auto mt-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. See who it could be</Link>
       )}
       <div className="max-w-md mx-auto px-6 pt-24 text-center space-y-5">
@@ -214,7 +212,7 @@ export default function Swipe() {
             <Link href={`/report?userId=${profile.id}`} className="text-sm text-mute hover:text-white">Report</Link>
           </div>
         </div>
-        {admirers.length > 0 && (
+        {waiting && (
           <Link href="/crush/reveal" className="block mb-3 text-center text-sm rounded-xl px-3 py-2 bg-panel border border-line crush-edge">Someone here has a crush on you. See who it could be</Link>
         )}
         <div className="mb-3"><Switch show={show} choose={choose} /></div>

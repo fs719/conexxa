@@ -23,15 +23,19 @@ const launchBody = (email: string, hasAccount: boolean, school: string) => {
 }
 
 // Sends the "your school is live" email to everyone on the list who has not had it yet. Retry-safe.
+// Each batch is claimed first (marked as emailed) so two runs at once can never send the same person two emails; a failed batch is un-claimed.
 export async function sendPendingLaunchEmails(db: DB, domain: string): Promise<{ sent: number; failed: number }> {
-  const { data: rows } = await db.from('waitlist').select('email,has_account')
-    .eq('school_domain', domain).eq('removed', false).is('launch_emailed_at', null).limit(5000)
   const school = schoolFrom(domain) || domain
   let sent = 0, failed = 0
-  const list = rows || []
-  for (let i = 0; i < list.length; i += 100) {
-    const chunk = list.slice(i, i + 100)
-    const body = chunk.map((r: any) => ({
+  for (let round = 0; round < 200; round++) {
+    const { data: rows } = await db.from('waitlist').select('email,has_account')
+      .eq('school_domain', domain).eq('removed', false).is('launch_emailed_at', null).limit(100)
+    if (!rows?.length) break
+    const emails = rows.map((r: { email: string }) => r.email)
+    const { data: claimed } = await db.from('waitlist').update({ launch_emailed_at: new Date().toISOString() })
+      .in('email', emails).is('launch_emailed_at', null).select('email,has_account')
+    if (!claimed?.length) continue
+    const body = claimed.map((r: { email: string; has_account: boolean }) => ({
       from: 'Conexxa <verify@conexxa.net>',
       to: [r.email],
       subject: `${school} is live on Conexxa`,
@@ -44,13 +48,14 @@ export async function sendPendingLaunchEmails(db: DB, domain: string): Promise<{
         body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error(`resend ${res.status} ${await res.text()}`)
-      await db.from('waitlist').update({ launch_emailed_at: new Date().toISOString() }).in('email', chunk.map((r: any) => r.email))
-      sent += chunk.length
+      sent += claimed.length
     } catch (e) {
       console.error('launch email batch failed', e)
-      failed += chunk.length
+      await db.from('waitlist').update({ launch_emailed_at: null }).in('email', claimed.map((r: { email: string }) => r.email))
+      failed += claimed.length
+      break // stop here; the admin retry picks up the rest
     }
-    if (i + 100 < list.length) await new Promise(r => setTimeout(r, 700))
+    await new Promise(r => setTimeout(r, 700))
   }
   return { sent, failed }
 }

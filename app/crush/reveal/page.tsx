@@ -58,7 +58,7 @@ export default function Reveal() {
                   {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : m.name[0]?.toUpperCase()}
                 </div>
               </div>
-              <p className="text-mute">You picked {m.name}, and {m.name} picked you first. Answer one question together to open the chat. You have 48 hours.</p>
+              <p className="text-mute">You tapped {m.name}, and {m.name} had a crush on you first. Answer one question together to open the chat. You have 48 hours.</p>
               <button onClick={() => router.push(`/icebreaker/${m.id}`)} className="w-full py-4 rounded-full font-semibold text-lg btn-crush">Answer the question</button>
             </>
           ) : (
@@ -88,7 +88,7 @@ export default function Reveal() {
       <div className="max-w-md mx-auto px-4 pt-8 space-y-5">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-crush">Someone has a crush on you</h1>
-          <p className="text-mute">They are one of these people. Tap up to {max}. If you tap them, you both find out. If you don't, nobody ever knows.</p>
+          <p className="text-mute">They are one of these people. Who do you think it is? Tap up to {max}. If you tap them, you both find out. If you don't, nobody ever knows.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {grid.map(c => {

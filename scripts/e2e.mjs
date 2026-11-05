@@ -276,7 +276,9 @@ async function main() {
   const list = await api('/api/crush', B.token)
   ok('sender sees it as Sent', list.j?.crushes?.[0]?.status === 'sent' && list.j.left === 2, JSON.stringify(list.j))
   const inbox = await api('/api/crush?inbox=1', C.token)
-  ok('receiver inbox has the sender, no extras', inbox.j?.ids?.length === 1 && inbox.j.ids[0] === B.id, JSON.stringify(inbox.j))
+  ok('receiver inbox says a crush is waiting but never who', inbox.j?.waiting === true && !('ids' in inbox.j) && !JSON.stringify(inbox.j).includes(B.id), JSON.stringify(inbox.j))
+  { const { data: like } = await admin.from('swipes').select('direction').eq('swiper_id', B.id).eq('swiped_id', C.id)
+    ok('the crush is not stored as a like before the receiver picks', !like?.length, JSON.stringify(like)) }
   const meC = await api('/api/me', C.token)
   ok('/api/me says a crush is waiting', meC.j?.pending === true, JSON.stringify(meC.j))
   { const { data: early } = await admin.from('matches').select('id').or(`and(user1_id.eq.${B.id},user2_id.eq.${C.id}),and(user1_id.eq.${C.id},user2_id.eq.${B.id})`)

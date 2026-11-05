@@ -1,4 +1,4 @@
-import { admin, normEmail, tokenOk } from '@/lib/server'
+import { admin, findUserId, normEmail, tokenOk } from '@/lib/server'
 import { schoolDomain } from '@/lib/school'
 import { isLive } from '@/lib/gate'
 
@@ -47,16 +47,24 @@ export async function POST(req: Request) {
   if (schoolDomain(email) !== w.school_domain || !(await isLive(db, w.school_domain)))
     return bad('Your school is not open yet. We will email you the moment it is.', 403)
 
+  // Someone who signed up under the old flow may already have a login with no profile. Adopt it instead of refusing.
+  let uid: string | null = null, madeNow = false
   const { data: created, error } = await db.auth.admin.createUser({ email, password, email_confirm: true })
-  if (error || !created.user) {
-    return bad(/already|registered|exists/i.test(error?.message || '') ? 'An account with this email already exists. Log in instead.' : error?.message || 'Could not create your account.', /already|registered|exists/i.test(error?.message || '') ? 409 : 500)
-  }
+  if (created?.user) { uid = created.user.id; madeNow = true }
+  else if (/already|registered|exists/i.test(error?.message || '')) {
+    const old = await findUserId(email)
+    const { data: has } = old ? await db.from('profiles').select('id').eq('id', old).maybeSingle() : { data: null }
+    if (!old || has) return bad('An account with this email already exists. Log in instead.', 409)
+    const { error: ue } = await db.auth.admin.updateUserById(old, { password })
+    if (ue) return bad(ue.message, 500)
+    uid = old
+  } else return bad(error?.message || 'Could not create your account.', 500)
   const { error: pe } = await db.from('profiles').insert({
-    id: created.user.id, name: w.first_name, gender: w.gender, interested_in: interested,
+    id: uid, name: w.first_name, gender: w.gender, interested_in: interested,
     intent: 'serious', age, edu_email: email,
   })
   if (pe) {
-    await db.auth.admin.deleteUser(created.user.id)
+    if (madeNow) await db.auth.admin.deleteUser(uid!)
     return bad('Could not save your profile. Try again.', 500)
   }
   await db.from('waitlist').update({ has_account: true }).eq('email', email)

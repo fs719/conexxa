@@ -29,11 +29,7 @@ export async function POST(req: Request) {
   }
   await db.from('email_codes').delete().eq('email', email).eq('purpose', purpose)
 
-  if (purpose === 'signup') {
-    const { error } = await db.auth.admin.createUser({ email, password, email_confirm: true })
-    if (error) return bad(/already|registered|exists/i.test(error.message)
-      ? 'An account with this email already exists. Log in instead.' : error.message)
-  } else {
+  {
     const uid = await findUserId(email)
     if (!uid) return bad('Account not found.')
     const { error } = await db.auth.admin.updateUserById(uid, { password })

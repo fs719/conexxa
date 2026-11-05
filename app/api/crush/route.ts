@@ -1,5 +1,5 @@
 import { admin, isEdu, normEmail, sendCrushEmail } from '@/lib/server'
-import { setLike, backfillMatches, crushRoles } from '@/lib/matching'
+import { crushRoles } from '@/lib/matching'
 import { mySchool } from '@/lib/gate'
 import { schoolDomain } from '@/lib/school'
 
@@ -28,13 +28,9 @@ export async function GET(req: Request) {
   }
 
   if (inbox) {
-    // Who has a crush on you that you have not been through the grid for. Ids only; you never learn which crush is whose.
-    const email = normEmail(user.email)
-    const { data: rows } = await db.from('crushes').select('sender_id').eq('target_email', email).is('revealed_at', null)
-    const { data: bl } = await db.from('blocks').select('blocker_id,blocked_id').or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`)
-    const hidden = new Set((bl || []).map(b => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id)))
-    const ids = [...new Set((rows || []).map(r => r.sender_id))].filter(id => id !== user.id && !hidden.has(id))
-    return Response.json({ ids })
+    // Only whether something is waiting. Who sent it is never sent to the browser; the grid is the only way to find out.
+    const { count } = await db.from('crushes').select('id', { count: 'exact', head: true }).eq('target_email', normEmail(user.email)).is('revealed_at', null)
+    return Response.json({ waiting: (count ?? 0) > 0 })
   }
 
   const { data: mine } = await db.from('crushes').select('id,target_email,created_at').eq('sender_id', user.id).order('created_at', { ascending: false })
@@ -84,10 +80,6 @@ export async function POST(req: Request) {
   const { error } = await db.from('crushes').insert({ sender_id: user.id, target_email: email, emailed })
   if (error) return Response.json({ error: 'Could not save. Try again.' }, { status: 500 })
 
-  if (target && target.id !== user.id) {
-    // They already have an account: store the like now. A like back makes the match.
-    await setLike(db, user.id, target.id)
-    await backfillMatches(db, user.id)
-  }
+  // The crush is just a row here. It only becomes a like if the person it points at picks the sender on the grid.
   return Response.json({ ok: true })
 }

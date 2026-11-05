@@ -72,7 +72,7 @@ export default function SignUp() {
           <p className="text-mute">We'll email you the moment {school.name} opens. That's when you finish up and go live.</p>
         </div>
         <WaitlistStatus name={school.name} count={school.count} goal={school.goal} />
-        <p className="text-xs text-mute text-center">Every email we send has a link to take you off the list.</p>
+        <p className="text-xs text-mute text-center">Emails we send once you're on the list include a link to take you off it.</p>
       </div>
     </main>
   )

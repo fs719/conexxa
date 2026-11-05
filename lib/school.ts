@@ -12,7 +12,7 @@ export function schoolFrom(email?: string | null): string | null {
 export function schoolDomain(emailOrDomain?: string | null): string {
   const e = (emailOrDomain || '').trim().toLowerCase()
   const d = e.includes('@') ? e.split('@')[1] : e
-  const parts = d.split('.').filter(Boolean)
+  const parts = d.replace(/[^a-z0-9.-]/g, '').split('.').filter(Boolean) // letters, digits, dots and dashes only: safe to put in a database filter
   return parts.length <= 2 ? parts.join('.') : parts.slice(-2).join('.')
 }
 

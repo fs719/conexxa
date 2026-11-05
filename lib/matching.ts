@@ -13,6 +13,13 @@ export async function setLike(db: DB, swiper: string, swiped: string) {
   await db.from('swipes').insert({ swiper_id: swiper, swiped_id: swiped, direction: 'like' })
 }
 
+// Record a pass the same way: no reliance on a unique constraint.
+export async function setSkip(db: DB, swiper: string, swiped: string) {
+  const { data: ex } = await db.from('swipes').select('swiper_id').eq('swiper_id', swiper).eq('swiped_id', swiped).limit(1)
+  if (ex?.length) { await db.from('swipes').update({ direction: 'skip' }).eq('swiper_id', swiper).eq('swiped_id', swiped); return }
+  await db.from('swipes').insert({ swiper_id: swiper, swiped_id: swiped, direction: 'skip' })
+}
+
 // Creates any missing matches for mutual likes involving this user (skips blocked pairs).
 export async function backfillMatches(db: DB, userId: string) {
   const { data: mine } = await db.from('swipes').select('swiped_id').eq('swiper_id', userId).eq('direction', 'like')

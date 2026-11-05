@@ -33,7 +33,7 @@ function CrushPage() {
       if (!session) { router.push('/login'); return }
       setToken(session.access_token)
       load(session.access_token)
-      fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => setWaiting(!!d?.ids?.length)).catch(() => {})
+      fetch('/api/crush?inbox=1', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => setWaiting(!!d?.waiting)).catch(() => {})
       fetch('/api/pulse', { headers: { Authorization: `Bearer ${session.access_token}` } }).then(r => r.ok ? r.json() : null).then(d => d && setPulse(d)).catch(() => {})
     })()
   }, [])

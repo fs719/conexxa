@@ -77,7 +77,7 @@ function Finish() {
               className={`py-3 rounded-xl border transition ${form.interested_in === v ? 'btn-flame border-transparent' : 'border-line hover:border-white/40'}`}>{l}</button>
           ))}
         </div>
-        <p className="text-xs text-mute -mt-2">Only used to pick who you see. Nobody else ever sees it.</p>
+        <p className="text-xs text-mute -mt-2">Used to pick who you see. It is never shown on your profile.</p>
         <div>
           <p className="text-mute text-sm mb-2">A photo (optional, but it helps)</p>
           <PhotoPicker file={photo} onFile={setPhoto} onRemove={() => setPhoto(null)} />

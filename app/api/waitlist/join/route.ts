@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const code = String(body.code || '').trim()
   const name = String(body.name || '').trim().slice(0, 30)
   const gender = String(body.gender || '')
-  if (!isEdu(email)) return bad('Please use a valid .edu email.')
+  if (!isEdu(email) || !email.endsWith('.edu')) return bad('Please use your school (.edu) email.')
   if (!name) return bad('Please enter your first name.')
   if (!GENDERS.includes(gender)) return bad('Please pick one of the options.')
   if (body.adult !== true) return bad('You must be 18 or older to join.')
@@ -26,11 +26,12 @@ export async function POST(req: Request) {
     await db.from('email_codes').delete().eq('email', email).eq('purpose', 'waitlist')
     return bad('Too many attempts. Request a new code.')
   }
+  // Count this guess first, and only one of several simultaneous guesses can claim each attempt number.
+  const { data: claimed } = await db.from('email_codes').update({ attempts: row.attempts + 1 })
+    .eq('email', email).eq('purpose', 'waitlist').eq('attempts', row.attempts).select('attempts')
+  if (!claimed?.length) return bad('Too many tries at once. Wait a moment and try again.', 429)
   const a = Buffer.from(hashCode(code, email, 'waitlist')), b = Buffer.from(row.code_hash)
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    await db.from('email_codes').update({ attempts: row.attempts + 1 }).eq('email', email).eq('purpose', 'waitlist')
-    return bad('Invalid code. Please try again.')
-  }
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return bad('Invalid code. Please try again.')
   await db.from('email_codes').delete().eq('email', email).eq('purpose', 'waitlist')
 
   const domain = schoolDomain(email)
@@ -49,6 +50,8 @@ export async function POST(req: Request) {
 
   await openIfReady(db, domain)
   const st = await schoolStatus(db, domain)
+  // Joined after the school was already open: they go straight to the finish screen, so no launch email is owed.
+  if (st.live) await db.from('waitlist').update({ launch_emailed_at: new Date().toISOString() }).eq('email', email).is('launch_emailed_at', null)
   // If the school is already open, the person goes straight to the finish screen.
   return Response.json({ ok: true, school: st, ...(st.live ? { finish: finishToken(email) } : {}) })
 }
