@@ -1,0 +1,120 @@
+commit: 92e46d0e957243a16150eaf3dea572b1706ac02b
+time: 2026-11-06T01:22:18Z
+
+(node:2316) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/conexxa/conexxa/lib/icebreakers.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/runner/work/conexxa/conexxa/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO testing against https://www.conexxa.net
+PASS page / loads
+PASS page /signup loads
+PASS page /login loads
+PASS page /terms loads
+PASS page /privacy loads
+PASS page /swipe loads
+PASS page /matches loads
+PASS page /crush loads
+PASS page /crush/reveal loads
+PASS page /finish loads
+PASS page /waiting loads
+PASS page /dashboard loads
+PASS page /forgot-password loads
+PASS crush landing page text
+PASS normal landing text
+PASS bad opt-out link rejected
+INFO test keys project: wewzxmhtkwrpuvmwvgwq.supabase.co | live site project(s): wewzxmhtkwrpuvmwvgwq.supabase.co
+PASS live site uses the same Supabase project as the test keys
+PASS Supabase accepts the test login token
+INFO live site answer to a valid token: 200 {"crushes":[],"left":3}
+INFO token iss: https://wewzxmhtkwrpuvmwvgwq.supabase.co/auth/v1 role: authenticated
+PASS stats blocked without login
+PASS stats blocked for normal user
+PASS swipe needs login
+PASS one-sided like does not match
+PASS mutual like makes a match
+PASS backfill creates no duplicate
+PASS exactly one match row
+PASS match expires in about 48h
+PASS prompt is from the new question list
+PASS bad answer rejected
+PASS chat locked before answers
+PASS first answer keeps chat locked
+PASS second answer unlocks chat
+PASS message sends
+PASS empty message rejected
+PASS other person sees the message
+PASS outsider cannot read chat
+INFO school_domain column: present
+INFO anon profiles read: permission denied for table profiles
+PASS a logged-in user cannot create a profile straight in the database (only the finish screen can)
+PASS server can create the profile
+PASS signup email is forced to the verified one
+PASS profile and photo can be updated
+PASS photo can be removed
+PASS own profile readable with the app columns
+PASS who-you-want-to-see and hidden cannot be read straight from the database
+PASS profiles are not readable without logging in
+PASS other people's college emails are NOT readable
+PASS cannot edit someone else's profile
+PASS cannot swipe as someone else
+PASS outsider cannot see a match
+PASS outsider cannot read messages straight from the database
+PASS cannot create a match by writing to the database
+PASS cannot tamper with a match's answers
+PASS cannot forge a message as someone else
+PASS sign-in codes table is closed
+PASS crush table is closed
+PASS vibe-check and contact tables are closed to direct reads
+PASS school badge cannot be faked by editing your own profile
+PASS cannot overwrite someone else's photo
+PASS instagram share goes through as a chat message
+PASS other person sees the shared Instagram
+PASS old swap and vibe-check routes are gone
+PASS unmatch works
+PASS match is deleted
+PASS match does not come back after backfill
+PASS outsider cannot unmatch
+PASS closed school cannot swipe
+PASS closed school cannot send a crush
+PASS /api/me says the school is closed
+PASS /api/me says an open school is open
+PASS join rejects a wrong code
+PASS join needs the 18+ box
+PASS join rejects a non-college email
+FAIL joining puts you on the list, school not open {"status":400,"j":{"error":"Invalid code. Please try again."}}
+PASS code cannot be used twice
+FAIL leaderboard shows school names and counts only {"board":[{"name":"gmail.com","count":3,"goal":70,"live":false},{"name":"Georgetown","count":2,"goal":70,"live":false},{"name":"E2e-wait","count":2,"goal":3,"live":false}],"mine":{"domain":"e2e-wait.edu","name":"E2e-wait","count":2,"goal":3,"live":false}}
+PASS finish link with a bad token is refused
+PASS finish before the school opens is refused
+FAIL reaching the goal opens the school and hands over the finish link {"status":400,"j":{"error":"Invalid code. Please try again."}}
+FAIL school is marked open in the database 
+FAIL finish screen knows the first name {"status":403,"j":{"error":"This link is not valid."}}
+FAIL finish refuses under 18 
+FAIL finish needs the terms box 
+FAIL finish needs a real password 
+FAIL finishing creates the account {"status":403,"j":{"error":"This link is not valid."}}
+FAIL profile has the sign-up answers and is not hidden null
+FAIL the new account can log in Invalid login credentials
+FAIL finishing twice is refused 
+FAIL remove link shows a confirm button and removes nobody yet 
+PASS remove link with a bad token is refused
+FAIL confirming removes you from the list and the count 
+FAIL a removed person cannot finish {"status":403,"j":{"error":"This link is not valid."}}
+PASS crush rejects non-college email
+PASS crush rejects own email
+PASS crush must stay inside your own school
+PASS crush saves
+PASS duplicate crush rejected
+PASS sender sees it as Sent
+PASS receiver inbox says a crush is waiting but never who
+PASS the crush is not stored as a like before the receiver picks
+PASS /api/me says a crush is waiting
+PASS no match exists before the receiver picks
+PASS no grid for someone with nothing waiting
+FAIL grid has up to 10 schoolmates with the sender in it []
+PASS grid never includes you or a hidden person
+PASS grid shows only name, age and photo
+PASS everyone in the grid is the sender's gender, so nobody stands out
+FAIL crashed: Cannot read properties of null (reading 'map')
+
+88 passed, 17 failed
