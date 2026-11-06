@@ -13,7 +13,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
   return (
     <main className="min-h-dvh bg-ink text-white flex flex-col px-6">
       <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-center py-16">
-        <p className="font-display text-xl font-bold mb-10">Conexxa</p>
+        <img src="/brand/conexxa-wordmark.png" alt="Conexxa" className="h-7 w-auto mb-10" />
         {crush ? (
           <>
             <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.02]">Someone has a crush on you.</h1>
