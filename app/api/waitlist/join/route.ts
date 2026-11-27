@@ -3,6 +3,7 @@ import { admin, finishToken, hashCode, isEdu, normEmail } from '@/lib/server'
 import { schoolDomain } from '@/lib/school'
 import { schoolStatus } from '@/lib/gate'
 import { openIfReady } from '@/lib/launch'
+import { posterFor } from '@/lib/posters'
 
 const bad = (error: string, status = 400) => Response.json({ error }, { status })
 const GENDERS = ['Male', 'Female', 'Non-Binary', 'Prefer Not to Say']
@@ -50,6 +51,14 @@ export async function POST(req: Request) {
     { onConflict: 'email' },
   )
   if (error) return bad('Could not save. Try again.', 500)
+  // Which campus poster this person came from (item 95 of F's list of 2026-11-27). Kept apart from the save above, so a
+  // database without the column yet (supabase/poster_source.sql) never stops a sign-up; the log line counts it meanwhile.
+  const poster = posterFor(body.poster)
+  if (poster) {
+    console.log(`waitlist join: poster=${poster.code} school=${domain}`)
+    const { error: pe } = await db.from('waitlist').update({ source: poster.code }).eq('email', email).is('source', null)
+    if (pe) console.log(`waitlist join: poster not saved (${pe.code || 'error'})`)
+  }
 
   await openIfReady(db, domain)
   const st = await schoolStatus(db, domain)

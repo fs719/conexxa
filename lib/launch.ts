@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { admin, finishToken, removeToken } from '@/lib/server'
 import { schoolFrom } from '@/lib/school'
+import { schoolName } from '@/lib/posters'
 
 type DB = ReturnType<typeof admin>
 
@@ -28,7 +29,7 @@ const launchBody = (email: string, hasAccount: boolean, school: string) => {
 // Sends the "your school is live" email to everyone on the list who has not had it yet. Retry-safe.
 // Each batch is claimed first (marked as emailed) so two runs at once can never send the same person two emails; a failed batch is un-claimed.
 export async function sendPendingLaunchEmails(db: DB, domain: string): Promise<{ sent: number; failed: number }> {
-  const school = schoolFrom(domain) || domain
+  const school = schoolName(domain, schoolFrom(domain) || domain)
   let sent = 0, failed = 0
   for (let round = 0; round < 200; round++) {
     const { data: rows } = await db.from('waitlist').select('email,has_account')

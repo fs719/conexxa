@@ -1,15 +1,20 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import WaitlistStatus from '@/components/WaitlistStatus'
+import { posterFor } from '@/lib/posters'
 
 type Status = { name: string; count: number; goal: number; live: boolean }
 
 // Joining the list: school email, first name, gender, 18+, then the code. No password and no account yet.
-export default function SignUp() {
+// ?s=gu1 (a campus poster's code) names the school on the page and is sent with the join, so we know which poster worked.
+export default function SignUp() { return <Suspense fallback={null}><Join /></Suspense> }
+
+function Join() {
   const router = useRouter()
+  const poster = posterFor(useSearchParams().get('s'))
   const [step, setStep] = useState<'details' | 'code' | 'done'>('details')
   const [form, setForm] = useState({ email: '', name: '', gender: '', adult: false })
   const [code, setCode] = useState('')
@@ -45,7 +50,7 @@ export default function SignUp() {
 
   const verify = async () => {
     setLoading(true)
-    const { ok, data } = await post('/api/waitlist/join', { ...form, email: form.email.trim().toLowerCase(), code })
+    const { ok, data } = await post('/api/waitlist/join', { ...form, email: form.email.trim().toLowerCase(), code, poster: poster?.code })
     setLoading(false)
     if (!ok) { setError(data.error || 'Invalid code.'); return }
     if (data.hasAccount) { router.push('/login'); return }
@@ -68,7 +73,7 @@ export default function SignUp() {
     <main className="min-h-dvh bg-ink text-white flex justify-center p-4">
       <div className="w-full max-w-md py-10 space-y-6">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">You're on the list</h1>
+          <h1 className="text-3xl font-bold">You're on the {school.name} list</h1>
           <p className="text-mute">We'll email you the moment {school.name} opens. That's when you finish up and go live.</p>
         </div>
         <WaitlistStatus name={school.name} count={school.count} goal={school.goal} />
@@ -80,13 +85,13 @@ export default function SignUp() {
   return (
     <main className="min-h-dvh bg-ink text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <button onClick={() => { setError(''); if (step === 'code') { setStep('details'); setCode('') } else router.push('/') }} className="text-mute hover:text-white mb-6">← Back</button>
+        <button onClick={() => { setError(''); if (step === 'code') { setStep('details'); setCode('') } else router.push(poster ? `/?s=${poster.code}` : '/') }} className="text-mute hover:text-white mb-6">← Back</button>
 
         {step === 'details' && (
           <div className="space-y-5">
-            <h1 className="text-3xl font-bold">Get on the list</h1>
-            <p className="text-mute">Your school opens when 70 students join. We'll email you the day it does.</p>
-            <input type="email" placeholder="your@university.edu" value={form.email} autoCapitalize="none"
+            <h1 className="text-3xl font-bold">{poster ? `Get on the ${poster.school} list` : 'Get on the list'}</h1>
+            <p className="text-mute">We email you the day {poster ? poster.school : 'your school'} goes live.</p>
+            <input type="email" placeholder={poster ? `you@${poster.domain}` : "your@university.edu"} value={form.email} autoCapitalize="none"
               onChange={e => setForm({ ...form, email: e.target.value })}
               className="w-full bg-panel border border-line rounded-xl p-3 text-white" />
             <input type="text" placeholder="First name" value={form.name} maxLength={30}
@@ -104,7 +109,6 @@ export default function SignUp() {
             </label>
             {error && <p className="text-flame">{error}</p>}
             <button disabled={loading} onClick={submitDetails} className="w-full btn-flame py-3 rounded-full font-semibold transition">{loading ? 'Sending...' : 'Send my code'}</button>
-            <p className="text-center text-mute text-sm">Already have an account? <Link href="/login" className="text-ember hover:underline">Log in</Link></p>
           </div>
         )}
 
