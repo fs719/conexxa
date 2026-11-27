@@ -15,12 +15,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
   let week = 0
   let board: SchoolStatus[] = []
   let mine: SchoolStatus | null = null
+  let someOpen = false
   try {
     const db = admin()
     if (poster) mine = await schoolStatus(db, poster.domain)
-    else { week = await weeklyCrushes(db); board = await leaderboard(db, 5) }
+    else {
+      week = await weeklyCrushes(db); board = await leaderboard(db, 5)
+      // Any open school anywhere, not only the top five, so a student whose school is open can always log in.
+      const { data: open } = await db.from('schools').select('domain').not('live_at', 'is', null).limit(1)
+      someOpen = !!open?.length
+    }
   } catch {}
-  const anyOpen = poster ? !!mine?.live : board.some(b => b.live)
+  // A poster page shows "Log in" only when its own school is open; elsewhere, when any school is open, or when the
+  // count could not be read (never lock a student out because of a failed read), and always on the crush link.
+  const anyOpen = poster ? !!mine?.live : someOpen || crush || board.length === 0
 
   return (
     <main className="min-h-dvh bg-ink text-white flex flex-col px-6">
