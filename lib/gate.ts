@@ -1,5 +1,6 @@
 import { admin } from '@/lib/server'
 import { DEFAULT_GOAL, schoolDomain, schoolFrom } from '@/lib/school'
+import { schoolName } from '@/lib/posters'
 
 type DB = ReturnType<typeof admin>
 
@@ -10,7 +11,7 @@ export async function schoolStatus(db: DB, domainRaw: string): Promise<SchoolSta
   const domain = schoolDomain(domainRaw)
   const { data: s } = await db.from('schools').select('goal,live_at').eq('domain', domain).maybeSingle()
   const { count } = await db.from('waitlist').select('email', { count: 'exact', head: true }).eq('school_domain', domain).eq('removed', false)
-  return { domain, name: schoolFrom(domain) || domain, count: count ?? 0, goal: s?.goal ?? DEFAULT_GOAL, live: !!s?.live_at }
+  return { domain, name: schoolName(domain, schoolFrom(domain) || domain), count: count ?? 0, goal: s?.goal ?? DEFAULT_GOAL, live: !!s?.live_at }
 }
 
 export const isLive = async (db: DB, domainRaw: string) => (await schoolStatus(db, domainRaw)).live
@@ -26,7 +27,7 @@ export async function leaderboard(db: DB, limit = 10): Promise<SchoolStatus[]> {
   const out: SchoolStatus[] = []
   for (const s of (schools || []).filter(x => x.domain.endsWith('.edu'))) { // only real schools; test logins never show
     const { count } = await db.from('waitlist').select('email', { count: 'exact', head: true }).eq('school_domain', s.domain).eq('removed', false)
-    if ((count ?? 0) > 0) out.push({ domain: s.domain, name: schoolFrom(s.domain) || s.domain, count: count ?? 0, goal: s.goal, live: !!s.live_at })
+    if ((count ?? 0) > 0) out.push({ domain: s.domain, name: schoolName(s.domain, schoolFrom(s.domain) || s.domain), count: count ?? 0, goal: s.goal, live: !!s.live_at })
   }
   return out.sort((a, b) => b.count - a.count).slice(0, limit)
 }

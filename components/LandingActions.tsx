@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-// Sign-up buttons for visitors, "Open Conexxa" for someone who is already logged in (with a way to switch accounts).
-export default function LandingActions() {
+// "Get on the list" for visitors. "Log in" shows only when a school is open (F, 2026-11-27: "there shouldn't be an
+// option to sign in... It's only a QR code"), and "Open Conexxa" for someone already logged in.
+export default function LandingActions({ join = '/signup', showLogin = false }: { join?: string; showLogin?: boolean }) {
   const [email, setEmail] = useState<string | null>(null)
   useEffect(() => { supabase.auth.getUser().then(({ data: { user } }) => setEmail(user?.email || null)).catch(() => {}) }, [])
 
@@ -19,8 +20,8 @@ export default function LandingActions() {
   )
   return (
     <div className="mt-10 space-y-3">
-      <Link href="/signup" className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Get on the list</Link>
-      <Link href="/login" className="block text-center py-4 rounded-full font-semibold text-lg border border-line hover:border-white/30 transition">Log in</Link>
+      <Link href={join} className="block text-center btn-flame py-4 rounded-full font-semibold text-lg">Get on the list</Link>
+      {showLogin && <p className="text-sm text-mute text-center">Your school is open? <Link href="/login" className="underline hover:text-white">Log in</Link></p>}
     </div>
   )
 }
